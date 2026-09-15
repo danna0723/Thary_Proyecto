@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block titulo %}Subir archivo — Sistema de Predicción de Demanda e Inventario{% endblock %}
+{% block encabezado %}Subir archivo{% endblock %}
+{% block titulo_pagina %}Sistema de Predicción de Demanda e Inventario{% endblock %}
+{% block subtitulo_pagina %}Sube tu archivo CSV de ventas para generar el pronóstico.{% endblock %}
+
+{% block contenido %}
+<div class="row">
+    <div class="col-12 col-lg-6">
+        <div class="card">
+            <div class="card-block">
+                <form action="{{ url_for('main.procesar') }}" method="post" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="nombre_empresa">Nombre de la empresa</label>
+                        <input type="text" id="nombre_empresa" name="nombre_empresa" maxlength="120"
+                               value="{{ nombre_empresa or '' }}" class="form-control" placeholder="Ej: Farmacia Central">
+                        <small class="form-text text-muted">
+                            Aparece en el sidebar y en el reporte de demanda descargable. Opcional.
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="archivo">Selecciona tu archivo CSV</label>
+                        <input type="file" id="archivo" name="archivo" accept=".csv" class="form-control-file" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="presupuesto">Presupuesto disponible para compras de inventario</label>
+                        <input type="number" id="presupuesto" name="presupuesto" min="0" step="any" value="500000" class="form-control">
+                        <small class="form-text text-muted">
+                            Se reparte en partes iguales entre todos los productos activos del
+                            catálogo y limita cuánto se sugiere pedir de cada uno. Si no lo
+                            cambias, se usa $500.000 como valor por defecto.
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="horizonte_meses">Cuántos meses hacia adelante pronosticar</label>
+                        <input type="number" id="horizonte_meses" name="horizonte_meses" min="1" max="24" step="1" value="3" class="form-control">
+                        <small class="form-text text-muted">
+                            Por ejemplo, poné 3 para ver los próximos 3 meses, o 12 para ver todo
+                            el año que viene. Si querés ver un mes puntual (como diciembre),
+                            poné la cantidad de meses que faltan hasta ese mes — va a aparecer
+                            como una de las columnas del resultado. Como el pronóstico se calcula
+                            mes a mes en cadena, entre más meses pidas, más se puede acumular el
+                            error hacia el final del horizonte.
+                        </small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Procesar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <div class="card">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title">Columnas que reconoce el archivo</h3>
+                </div>
+                <p class="text-muted small">
+                    El sistema acepta encabezados en español o en inglés — no hace falta que el
+                    archivo tenga un formato exacto, solo que use alguno de estos nombres.
+                </p>
+
+                <p class="text-muted small mb-1"><strong class="text-primary">Obligatorias</strong> — sin estas columnas el archivo no se puede procesar.</p>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td><code>Fecha</code> / <code>Date</code> / <code>Sale_Date</code></td>
+                                <td class="text-muted">Fecha de la venta o movimiento</td>
+                            </tr>
+                            <tr>
+                                <td><code>Producto</code> / <code>Product</code> / <code>Product_ID</code></td>
+                                <td class="text-muted">Identificador del producto</td>
+                            </tr>
+                            <tr>
+                                <td><code>Demanda</code> / <code>Demand</code> / <code>Sales</code> / <code>Quantity_Sold</code></td>
+                                <td class="text-muted">Cantidad vendida</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p class="text-muted small mb-1"><strong>Opcionales</strong> — si faltan, el sistema sigue funcionando, pero sin la función que dependa de ellas.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <td><code>Nombre_Producto</code> / <code>Product_Name</code></td>
+                                <td class="text-muted">Nombre legible del producto en las pantallas</td>
+                            </tr>
+                            <tr>
+                                <td><code>Categoria</code> / <code>Category</code></td>
+                                <td class="text-muted">Agrupa los productos por categoría</td>
+                            </tr>
+                            <tr>
+                                <td><code>Inventario_Actual</code> / <code>Inventory</code> / <code>Stock</code></td>
+                                <td class="text-muted">Habilita las alertas de reposición y el valor del inventario</td>
+                            </tr>
+                            <tr>
+                                <td><code>Precio</code> / <code>Price</code> / <code>Unit_Price</code></td>
+                                <td class="text-muted">Se usa como variable del pronóstico</td>
+                            </tr>
+                            <tr>
+                                <td><code>Costo_unitario</code></td>
+                                <td class="text-muted">Costos estimados y límite del presupuesto por producto</td>
+                            </tr>
+                            <tr>
+                                <td><code>Costo_pedido</code>, <code>Porcentaje_costo_mantenimiento</code></td>
+                                <td class="text-muted">Junto con el costo unitario, habilitan el cálculo de EOQ</td>
+                            </tr>
+                            <tr>
+                                <td><code>Lead_time_Semana</code></td>
+                                <td class="text-muted">Tiempo de entrega real del proveedor (si falta, se usa un valor por defecto)</td>
+                            </tr>
+                            <tr>
+                                <td><code>Proveedor</code> / <code>Supplier</code>, <code>Proveedor_Alterno</code></td>
+                                <td class="text-muted">Para elegir a quién pedirle al confirmar un pedido</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

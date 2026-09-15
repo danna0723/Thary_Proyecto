@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block titulo %}Sin datos todavía{% endblock %}
+{% block encabezado %}Sin datos{% endblock %}
+{% block titulo_pagina %}Todavía no hay datos cargados{% endblock %}
+{% block subtitulo_pagina %}
+Pídele a tu administrador que suba el archivo de ventas para poder ver esta información.
+{% endblock %}
+
+{% block contenido %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block text-center py-5">
+                <i class="fa fa-info-circle" style="font-size: 2.5rem; color: var(--md-text-muted);"></i>
+                <p class="mt-3 mb-0 text-muted">
+                    En cuanto tu administrador suba un archivo, vas a poder ver el pronóstico,
+                    el inventario y confirmar pedidos aquí.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

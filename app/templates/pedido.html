@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block titulo %}Pedido{% endblock %}
+{% block encabezado %}Pedido{% endblock %}
+{% block titulo_pagina %}Confirmar pedidos{% endblock %}
+{% block subtitulo_pagina %}
+Elige con qué proveedor pedir cada producto en alerta y confirma cuáles ya se compraron —
+queda registrado quién lo hizo y cuándo.
+{% endblock %}
+
+{% block contenido %}
+<div class="title-block">
+    <h2 class="title">Pendientes de confirmar</h2>
+    <p class="title-description">
+        {% if pendientes %}
+        <strong>{{ pendientes | length }}</strong> producto(s) en alerta todavía sin pedido confirmado.
+        {% else %}
+        No hay productos pendientes de confirmar.
+        {% endif %}
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                {% if pendientes %}
+                <form method="post" action="{{ url_for('main.pedido_confirmar') }}">
+                    <div class="table-responsive">
+                        <table class="table table-hover tabla-buscable">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="seleccionar-todos"></th>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th>Cantidad a pedir</th>
+                                    <th>Costo estimado</th>
+                                    <th>Proveedor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fila in pendientes %}
+                                <tr class="table-danger">
+                                    <td>
+                                        <input type="checkbox" class="chk-pedido" name="confirmar" value="{{ fila.producto_id }}">
+                                    </td>
+                                    <td>
+                                        {{ fila.producto_id }}
+                                        {% if fila.nombre_producto %}
+                                        <small class="d-block text-muted">{{ fila.nombre_producto }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if fila.categoria %}
+                                        <span class="badge badge-info">{{ fila.categoria }}</span>
+                                        {% else %}
+                                        <span class="badge badge-light text-muted">Sin categoría</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong class="text-primary">{{ fila.cantidad_sugerida_pedido if fila.cantidad_sugerida_pedido is not none else "—" }}</strong></td>
+                                    <td>{{ "$" + (fila.costo_estimado_pedido | moneda) if fila.costo_estimado_pedido is not none else "—" }}</td>
+                                    <td>
+                                        {% if fila.proveedor_principal or fila.proveedor_alterno %}
+                                        <select name="proveedor_{{ fila.producto_id }}" class="form-control">
+                                            {% if fila.proveedor_principal %}
+                                            <option value="{{ fila.proveedor_principal }}">{{ fila.proveedor_principal }} (principal)</option>
+                                            {% endif %}
+                                            {% if fila.proveedor_alterno %}
+                                            <option value="{{ fila.proveedor_alterno }}">{{ fila.proveedor_alterno }} (alterno)</option>
+                                            {% endif %}
+                                        </select>
+                                        {% else %}
+                                        <span class="text-muted">Sin proveedor</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn bg-gradient-primary">
+                        <i class="fa fa-check"></i> Confirmar pedidos seleccionados
+                    </button>
+                </form>
+                {% else %}
+                <p class="text-muted">Ningún producto necesita reposición por ahora, según el inventario y el pronóstico actuales.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="title-block">
+    <h2 class="title">Pedidos ya confirmados</h2>
+    <p class="title-description">Historial de pedidos marcados como realizados, con proveedor, usuario y fecha.</p>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                {% if confirmados %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover tabla-buscable">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Costo</th>
+                                <th>Proveedor elegido</th>
+                                <th>Confirmado por</th>
+                                <th>Fecha y hora</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fila in confirmados %}
+                            <tr>
+                                <td>
+                                    {{ fila.producto_id }}
+                                    {% if fila.nombre_producto %}
+                                    <small class="d-block text-muted">{{ fila.nombre_producto }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ fila.cantidad if fila.cantidad is not none else "—" }}</td>
+                                <td>{{ "$" + (fila.costo | moneda) if fila.costo is not none else "—" }}</td>
+                                <td>{{ fila.proveedor }}</td>
+                                <td>{{ fila.usuario }}</td>
+                                <td>{{ fila.fecha_hora }}</td>
+                                <td>
+                                    <form method="post" action="{{ url_for('main.pedido_deshacer', producto_id=fila.producto_id) }}" class="mb-0">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary mb-0">Deshacer</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Todavía no se confirmó ningún pedido.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var maestro = document.getElementById("seleccionar-todos");
+    if (maestro) {
+        maestro.addEventListener("change", function () {
+            document.querySelectorAll(".chk-pedido").forEach(function (chk) {
+                chk.checked = maestro.checked;
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

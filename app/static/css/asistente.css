@@ -1,0 +1,156 @@
+/* Widget flotante del asistente de IA. Reutiliza las variables de
+   tema definidas en css/style.css (--md-primary, --md-card-bg, etc.). */
+
+.asistente-widget {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 1000;
+}
+
+.asistente-btn {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
+    color: #fff;
+    font-size: 1.3rem;
+    box-shadow: 0 6px 18px rgba(233, 30, 99, .45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform .15s ease;
+}
+.asistente-btn:hover {
+    transform: scale(1.06);
+}
+.asistente-btn.activo {
+    background: var(--md-card-bg);
+    box-shadow: var(--md-card-shadow);
+}
+
+.asistente-panel {
+    position: absolute;
+    right: 0;
+    bottom: 68px;
+    width: 340px;
+    max-width: calc(100vw - 48px);
+    height: 460px;
+    max-height: calc(100vh - 120px);
+    background-color: var(--md-card-bg);
+    border: 1px solid var(--md-card-border);
+    border-radius: var(--md-card-radius);
+    box-shadow: var(--md-card-shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.asistente-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
+    color: #fff;
+    font-weight: 700;
+    font-size: .9rem;
+}
+.asistente-header i.fa-robot {
+    margin-right: 6px;
+}
+.asistente-cerrar {
+    background: none;
+    border: none;
+    color: #fff;
+    opacity: .85;
+    cursor: pointer;
+    font-size: 1rem;
+}
+.asistente-cerrar:hover {
+    opacity: 1;
+}
+
+.asistente-mensajes {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.asistente-msg {
+    max-width: 85%;
+    padding: 9px 13px;
+    border-radius: .8rem;
+    font-size: .85rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.asistente-msg-bot {
+    align-self: flex-start;
+    background-color: var(--md-bg-alt);
+    color: var(--md-text);
+    border-bottom-left-radius: .2rem;
+}
+.asistente-msg-user {
+    align-self: flex-end;
+    background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
+    color: #fff;
+    border-bottom-right-radius: .2rem;
+}
+.asistente-msg-pensando {
+    color: var(--md-text-muted);
+    font-style: italic;
+}
+.asistente-msg-error {
+    background-color: rgba(233, 30, 99, .12);
+    color: #ff6b9d;
+}
+
+.asistente-form {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--md-border);
+}
+.asistente-form input {
+    flex: 1 1 auto;
+    background-color: var(--md-bg-alt);
+    border: 1px solid var(--md-border);
+    color: var(--md-text);
+    border-radius: .6rem;
+    padding: 8px 12px;
+    font-size: .85rem;
+    outline: none;
+}
+.asistente-form input:focus {
+    border-color: var(--md-primary);
+}
+.asistente-form button {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    border: none;
+    border-radius: .6rem;
+    background: var(--md-primary);
+    color: #fff;
+    cursor: pointer;
+}
+.asistente-form button:hover {
+    background: var(--md-primary-dark);
+}
+
+@media (max-width: 480px) {
+    .asistente-widget {
+        right: 16px;
+        bottom: 16px;
+    }
+    .asistente-panel {
+        width: calc(100vw - 32px);
+    }
+}

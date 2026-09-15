@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titulo %}Sistema de Predicción de Demanda e Inventario{% endblock %}</title>
+    <script src="https://kit.fontawesome.com/e93ccfb9a4.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="{{ static_url('vendor/modular-admin/css/vendor.css') }}">
+    <link rel="stylesheet" href="{{ static_url('vendor/modular-admin/css/app.css') }}">
+    <link rel="stylesheet" href="{{ static_url('vendor/datatables/css/dataTables.bootstrap4.min.css') }}">
+    <link rel="stylesheet" href="{{ static_url('css/style.css') }}">
+    <link rel="stylesheet" href="{{ static_url('css/asistente.css') }}">
+</head>
+<body>
+    {% set analisis_endpoints = ['main.dashboard', 'main.inventario', 'main.presupuesto', 'main.pedido', 'main.pedido_confirmar', 'main.pedido_deshacer'] %}
+    {% set analisis_activo = request.endpoint in analisis_endpoints %}
+    {% set seccion_actual = 'Análisis' if analisis_activo else ('Pantallas' if request.endpoint in ['main.desarrollo', 'auth.usuarios_nuevo'] else 'Inicio') %}
+    {% set es_admin = session.get('rol') == 'admin' %}
+    <div class="main-wrapper">
+        <div class="app" id="app">
+            <header class="header">
+                <div class="header-block header-left">
+                    <button class="collapse-btn d-lg-none d-xl-none" id="sidebar-collapse-btn">
+                        <i class="fa fa-bars"></i>
+                    </button>
+                    <button class="collapse-btn d-none d-lg-inline-flex" id="sidebar-mini-toggle" title="Contraer/expandir menú">
+                        <i class="fa fa-bars"></i>
+                    </button>
+                    <div class="header-breadcrumb">
+                        <span class="breadcrumb-seccion">{{ seccion_actual }}</span>
+                        <span class="breadcrumb-sep">/</span>
+                        <span class="breadcrumb-actual">{% block encabezado %}{% endblock %}</span>
+                    </div>
+                </div>
+                <div class="header-block header-block-buttons">
+                    <div class="header-search">
+                        <i class="fa fa-search"></i>
+                        <input type="text" id="buscador-navbar" placeholder="Buscar aquí" autocomplete="off">
+                    </div>
+                    <div class="header-icon-group">
+                        {% if session.get('nombre') %}
+                        <div class="header-icon-wrap">
+                            <button class="header-icon" id="perfil-toggle" title="{{ session.get('nombre') }}" type="button">
+                                <i class="fa fa-user-circle"></i>
+                            </button>
+                            <div class="header-dropdown" id="perfil-dropdown">
+                                <div class="header-dropdown-nombre">{{ session.get('nombre') }}</div>
+                                <a href="{{ url_for('auth.logout') }}"><i class="fa fa-sign-out"></i> Cerrar sesión</a>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if es_admin %}
+                        <a href="{{ url_for('main.desarrollo') }}" class="header-icon" title="Panel técnico">
+                            <i class="fa fa-cog"></i>
+                        </a>
+                        {% endif %}
+                        <div class="header-icon-wrap">
+                            <span class="header-icon" title="Productos que necesitan pedido">
+                                <i class="fa fa-bell"></i>
+                                {% if r is defined and r.productos_en_alerta %}
+                                <span class="header-badge">{{ r.productos_en_alerta }}</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            <aside class="sidebar">
+                <div class="sidebar-container">
+                    <div class="sidebar-header">
+                        <a href="{{ url_for('main.index') if es_admin else url_for('main.dashboard') }}" class="brand">
+                            <img src="{{ static_url('img/logo.png') }}" alt="Thary" class="brand-logo">
+                            <img src="{{ static_url('img/logo-icono.png') }}" alt="Thary" class="brand-logo-mini">
+                        </a>
+                        {% if nombre_empresa %}
+                        <div class="sidebar-empresa nav-text" title="{{ nombre_empresa }}">{{ nombre_empresa }}</div>
+                        {% endif %}
+                    </div>
+
+                    {% if session.get('nombre') %}
+                    <div class="sidebar-user">
+                        <div class="sidebar-user-avatar"><i class="fa fa-user"></i></div>
+                        <div class="sidebar-user-info nav-text">
+                            <span class="sidebar-user-name">{{ session.get('nombre') }}</span>
+                            <a href="{{ url_for('auth.logout') }}" class="sidebar-user-logout">
+                                <i class="fa fa-sign-out"></i> Cerrar sesión
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <nav class="menu">
+                        <ul class="sidebar-menu" id="menu-principal">
+                            {% if es_admin %}
+                            <li class="{{ 'active' if request.endpoint == 'main.index' }}">
+                                <a href="{{ url_for('main.index') }}" title="Subir archivo">
+                                    <span class="nav-icon"><i class="fa fa-upload"></i></span>
+                                    <span class="nav-text">Subir archivo</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li class="nav-section-label"><span class="nav-text">Pantallas</span></li>
+                            <li class="submenu {{ 'menu-abierto' if analisis_activo }}">
+                                <a href="#" title="Análisis" class="submenu-toggle">
+                                    <span class="nav-icon"><i class="fa fa-th-large"></i></span>
+                                    <span class="nav-text">Análisis</span>
+                                    <i class="fa arrow"></i>
+                                </a>
+                                <ul class="sidebar-nav">
+                                    <li class="{{ 'active' if request.endpoint == 'main.dashboard' }}">
+                                        <a href="{{ url_for('main.dashboard') }}" title="Dashboard">
+                                            <span class="nav-icon"><i class="fa fa-home"></i></span>
+                                            <span class="nav-text">Dashboard</span>
+                                        </a>
+                                    </li>
+                                    <li class="{{ 'active' if request.endpoint == 'main.inventario' }}">
+                                        <a href="{{ url_for('main.inventario') }}" title="Estado del inventario">
+                                            <span class="nav-icon"><i class="fa fa-cubes"></i></span>
+                                            <span class="nav-text">Estado del inventario</span>
+                                        </a>
+                                    </li>
+                                    <li class="{{ 'active' if request.endpoint == 'main.presupuesto' }}">
+                                        <a href="{{ url_for('main.presupuesto') }}" title="Presupuesto y costos">
+                                            <span class="nav-icon"><i class="fa fa-money"></i></span>
+                                            <span class="nav-text">Presupuesto y costos</span>
+                                        </a>
+                                    </li>
+                                    <li class="{{ 'active' if request.endpoint and request.endpoint.startswith('main.pedido') }}">
+                                        <a href="{{ url_for('main.pedido') }}" title="Pedido">
+                                            <span class="nav-icon"><i class="fa fa-shopping-cart"></i></span>
+                                            <span class="nav-text">Pedido</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                            {% if es_admin %}
+                            <li class="{{ 'active' if request.endpoint == 'main.desarrollo' }}">
+                                <a href="{{ url_for('main.desarrollo') }}" title="Panel técnico">
+                                    <span class="nav-icon"><i class="fa fa-table"></i></span>
+                                    <span class="nav-text">Panel técnico</span>
+                                </a>
+                            </li>
+                            <li class="{{ 'active' if request.endpoint == 'auth.usuarios_nuevo' }}">
+                                <a href="{{ url_for('auth.usuarios_nuevo') }}" title="Usuarios">
+                                    <span class="nav-icon"><i class="fa fa-users"></i></span>
+                                    <span class="nav-text">Usuarios</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            </aside>
+            <div class="sidebar-overlay" id="sidebar-overlay"></div>
+            <div class="sidebar-mobile-menu-handle" id="sidebar-mobile-menu-handle"></div>
+            <article class="content">
+                {% with mensajes = get_flashed_messages() %}
+                    {% if mensajes %}
+                    <div class="alert alert-danger">
+                        {% for mensaje in mensajes %}<p class="mb-0">{{ mensaje }}</p>{% endfor %}
+                    </div>
+                    {% endif %}
+                {% endwith %}
+
+                <div class="title-block">
+                    <h1 class="title">{% block titulo_pagina %}{% endblock %}</h1>
+                    <p class="title-description">{% block subtitulo_pagina %}{% endblock %}</p>
+                </div>
+
+                <section class="section">
+                    {% block contenido %}{% endblock %}
+                </section>
+            </article>
+        </div>
+    </div>
+
+    <div class="asistente-widget" id="asistente-widget">
+        <button type="button" class="asistente-btn" id="asistente-toggle" title="Preguntarle al asistente">
+            <i class="fa fa-comments"></i>
+        </button>
+        <div class="asistente-panel" id="asistente-panel" hidden>
+            <div class="asistente-header">
+                <span><i class="fa fa-robot"></i> Asistente</span>
+                <button type="button" class="asistente-cerrar" id="asistente-cerrar" title="Cerrar">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="asistente-mensajes" id="asistente-mensajes">
+                <div class="asistente-msg asistente-msg-bot">
+                    ¡Hola! Pregúntame lo que necesites sobre el sistema: qué muestra cada
+                    pantalla, cómo confirmar un pedido, qué diferencia hay entre roles, etc.
+                </div>
+            </div>
+            <form class="asistente-form" id="asistente-form">
+                <input type="text" id="asistente-input" placeholder="Escribe tu pregunta..." maxlength="1000" autocomplete="off">
+                <button type="submit" title="Enviar"><i class="fa fa-paper-plane"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ static_url('vendor/modular-admin/js/vendor.js') }}"></script>
+    <script src="{{ static_url('vendor/modular-admin/js/app.js') }}"></script>
+    <script src="{{ static_url('vendor/datatables/js/jquery.dataTables.min.js') }}"></script>
+    <script src="{{ static_url('vendor/datatables/js/dataTables.bootstrap4.min.js') }}"></script>
+    <script>
+        // Busqueda + paginacion para cualquier tabla marcada con la
+        // clase "tabla-buscable" (tablas de productos, que pueden tener
+        // cientos de filas). No hace falta tocar nada más por página:
+        // basta con agregar la clase a la <table>.
+        document.addEventListener("DOMContentLoaded", function () {
+            if (window.jQuery && jQuery.fn.DataTable) {
+                jQuery(".tabla-buscable").DataTable({
+                    pageLength: 25,
+                    lengthMenu: [10, 25, 50, 100],
+                    language: {
+                        search: "Buscar:",
+                        lengthMenu: "Mostrar _MENU_ productos",
+                        info: "Mostrando _START_ a _END_ de _TOTAL_ productos",
+                        infoEmpty: "Sin resultados",
+                        infoFiltered: "(filtrado de _MAX_ productos en total)",
+                        zeroRecords: "No se encontraron productos",
+                        paginate: {
+                            first: "Primero",
+                            last: "Último",
+                            next: "Siguiente",
+                            previous: "Anterior"
+                        }
+                    }
+                });
+            }
+
+            // Desplegable de "Análisis" en el sidebar — toggle propio y
+            // simple (sin MetisMenu). MetisMenu venía con la plantilla y
+            // se usó al principio, pero su animación (que anima la altura
+            // con jQuery y depende de que le lleguen eventos de fin de
+            // transición) se pisaba con nuestro propio CSS y el submenú
+            // terminaba abriéndose y cerrándose solo. Para no seguir
+            // peleando con esa lógica ajena, el <ul id="menu-principal">
+            // ya NO tiene el id "sidebar-menu" que usa MetisMenu (así
+            // ni lo toca), y el toggle es este de acá: una clase
+            // "menu-abierto" en el <li>, con la altura animada por CSS
+            // (ver style.css) en vez de por JavaScript.
+            document.querySelectorAll(".submenu-toggle").forEach(function (toggleLink) {
+                toggleLink.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    toggleLink.closest(".submenu").classList.toggle("menu-abierto");
+                });
+            });
+
+            // Colapsar el sidebar completo a modo "solo íconos" (independiente
+            // del menú colapsable de Análisis, de acá arriba). Se guarda la
+            // preferencia para que no se resetee al cambiar de página.
+            var app = document.getElementById("app");
+            var toggle = document.getElementById("sidebar-mini-toggle");
+            if (localStorage.getItem("sidebarMini") === "1") {
+                app.classList.add("sidebar-mini");
+            }
+            if (toggle) {
+                toggle.addEventListener("click", function () {
+                    app.classList.toggle("sidebar-mini");
+                    localStorage.setItem("sidebarMini", app.classList.contains("sidebar-mini") ? "1" : "0");
+                });
+            }
+
+            // Dropdown del ícono de perfil en el navbar (nombre + cerrar
+            // sesión) — se abre/cierra con el botón, y se cierra solo si
+            // se hace clic afuera.
+            var perfilToggle = document.getElementById("perfil-toggle");
+            var perfilDropdown = document.getElementById("perfil-dropdown");
+            if (perfilToggle && perfilDropdown) {
+                perfilToggle.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    perfilDropdown.classList.toggle("mostrar");
+                });
+                document.addEventListener("click", function (e) {
+                    if (!perfilDropdown.contains(e.target)) {
+                        perfilDropdown.classList.remove("mostrar");
+                    }
+                });
+            }
+
+            // El buscador del navbar filtra la tabla de productos de la
+            // página actual (si tiene una) reutilizando el buscador de
+            // DataTables que ya se inicializó arriba — así no hay que
+            // mantener dos mecanismos de búsqueda distintos.
+            var buscadorNavbar = document.getElementById("buscador-navbar");
+            if (buscadorNavbar && window.jQuery) {
+                var primeraTabla = jQuery(".tabla-buscable").first();
+                if (primeraTabla.length && jQuery.fn.DataTable.isDataTable(primeraTabla)) {
+                    buscadorNavbar.addEventListener("input", function () {
+                        primeraTabla.DataTable().search(buscadorNavbar.value).draw();
+                    });
+                } else {
+                    buscadorNavbar.disabled = true;
+                    buscadorNavbar.placeholder = "Sin tabla en esta página";
+                }
+            }
+        });
+    </script>
+    <script src="{{ static_url('js/asistente.js') }}"></script>
+</body>
+</html>

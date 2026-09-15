@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block titulo %}Pronóstico de Demanda{% endblock %}
+{% block encabezado %}Dashboard{% endblock %}
+{% block titulo_pagina %}Pronóstico de demanda — próximos {{ r.meses_pronosticados_legibles | length }} mes(es){% endblock %}
+{% block subtitulo_pagina %}
+Cantidad estimada (en unidades) que se venderá de cada producto en cada uno de los
+próximos {{ r.meses_pronosticados_legibles | length }} mes(es), ordenado de mayor a menor demanda total esperada.
+{% endblock %}
+
+{% block contenido %}
+{% set total_meses = r.meses_pronosticados_legibles | length %}
+{% set top_demanda_chart = r.pronostico_pivot[:10] %}
+
+{% if top_demanda_chart %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                <div class="card-title-block d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h3 class="title mb-0">Productos con mayor demanda pronosticada (top {{ top_demanda_chart | length }}, {{ total_meses }} mes(es))</h3>
+                    <a href="{{ url_for('main.reporte_demanda') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fa fa-download"></i> Descargar reporte (CSV)
+                    </a>
+                </div>
+                <div class="chart" id="grafica-demanda-top" style="height: 280px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover tabla-buscable">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                {% for mes in r.meses_pronosticados_legibles %}
+                                <th>{{ mes }}</th>
+                                {% endfor %}
+                                <th>Total {{ total_meses }} mes(es)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fila in r.pronostico_pivot %}
+                            <tr>
+                                <td>
+                                    {{ fila.producto_id }}
+                                    {% if fila.nombre_producto %}
+                                    <small class="d-block text-muted">{{ fila.nombre_producto }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if fila.categoria %}
+                                    <span class="badge badge-info">{{ fila.categoria }}</span>
+                                    {% else %}
+                                    <span class="badge badge-light text-muted">Sin categoría</span>
+                                    {% endif %}
+                                </td>
+                                {% for valor in fila.valores %}
+                                <td>{{ valor }}</td>
+                                {% endfor %}
+                                <td><strong class="text-primary">{{ fila.total }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted small">
+    <a href="{{ url_for('main.presupuesto') }}">Ver qué pedir ahora, presupuesto y costos &rarr;</a>
+    &nbsp;·&nbsp;
+    <a href="{{ url_for('main.desarrollo') }}">Ver el detalle técnico de cómo se calculó este pronóstico &rarr;</a>
+</p>
+
+{% if top_demanda_chart %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    Morris.Bar({
+        element: 'grafica-demanda-top',
+        data: [
+            {% for fila in top_demanda_chart %}
+            { producto: {{ (fila.nombre_producto or fila.producto_id) | tojson }}, demanda: {{ fila.total }} }{{ "," if not loop.last }}
+            {% endfor %}
+        ],
+        xkey: 'producto',
+        ykeys: ['demanda'],
+        labels: ['Demanda total ({{ total_meses }} mes(es))'],
+        barColors: ['#e91e63'],
+        hideHover: 'auto',
+        resize: true
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

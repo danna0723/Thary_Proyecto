@@ -1,0 +1,22 @@
+# Entorno virtual — se recrea con "pip install -r requirements.txt",
+# nunca debe versionarse (son binarios de Windows, inútiles en un
+# servidor Linux, y son la enorme mayoría del peso del repo)
+venv/
+.venv/
+
+# Bytecode compilado de Python — se regenera solo
+__pycache__/
+*.pyc
+
+# Datos y resultados subidos por cada empresa — son de cada instalación,
+# no del código fuente (las carpetas base las crea la app sola al
+# arrancar, ver app/__init__.py)
+app/uploads/*/
+app/resultados/*/
+
+# Configuración local / secretos — nunca deben ir a GitHub
+.env
+
+# Otros
+.DS_Store
+*.log

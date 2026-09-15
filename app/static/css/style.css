@@ -1,0 +1,665 @@
+/* ============================================================
+   Tema propio inspirado en Material Dashboard PRO (Creative Tim),
+   variante oscura con acento magenta — a partir de una captura de
+   referencia que pasó el usuario. No es su código ni sus assets: es
+   un reemplazo de estilos hecho a mano sobre la plantilla base
+   (ModularAdmin) para lograr un look parecido. Solo aplica a las
+   pantallas del sistema (las que extienden base.html) — login/registro
+   ya usan la estética de Material Kit Pro y no se tocaron.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+:root {
+    --md-bg: #040404;
+    --md-bg-alt: #000000;
+    --md-card-bg: #080808;
+    --md-card-border: rgba(46, 12, 12, 0.06);
+    --md-primary: #e91e63;
+    --md-primary-dark: #c2185b;
+    --md-cyan: #17c1e8;
+    --md-success: #2dce89;
+    --md-text: #f5f5f5;
+    --md-text-muted: #a8a8a8;
+    --md-border: rgba(255, 255, 255, .08);
+    --md-card-radius: 1rem;
+    --md-card-shadow: 0 8px 26px -6px rgba(0, 0, 0, .5);
+}
+
+/* ---------- Barra de desplazamiento ---------- */
+::-webkit-scrollbar-track {
+    background: var(--md-bg-alt);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--md-primary);
+}
+::-webkit-scrollbar-thumb:window-inactive {
+    background: var(--md-primary-dark);
+}
+
+/* ---------- Base ---------- */
+body, .main-wrapper {
+    background: var(--md-bg) !important;
+    font-family: 'Roboto', 'Open Sans', sans-serif;
+    color: var(--md-text-muted);
+    /* Red de seguridad para mobile: si algún elemento se pasa de ancho
+       por error, que scrollee dentro de sí mismo (ver .table-responsive)
+       en vez de arrastrar a toda la página a un scroll horizontal. */
+    overflow-x: hidden;
+}
+.app {
+    background-color: var(--md-bg) !important;
+    box-shadow: none !important;
+    transition: padding-left .3s ease;
+}
+a { color: var(--md-primary); }
+a:hover { color: var(--md-primary-dark); }
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+    background-color: var(--md-bg-alt) !important;
+    border-right: 1px solid var(--md-border);
+    transition: width .3s ease;
+}
+.sidebar .sidebar-container::-webkit-scrollbar-track {
+    background-color: var(--md-bg-alt) !important;
+}
+.sidebar-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--md-border);
+}
+.sidebar-header .brand {
+    display: flex;
+    align-items: center;
+}
+.sidebar-header .brand-logo {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+.sidebar-header .brand-logo-mini {
+    display: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+.sidebar-empresa {
+    margin-top: 10px;
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--md-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--md-border);
+}
+.sidebar-user-avatar {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .95rem;
+}
+.sidebar-user-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.sidebar-user-name {
+    color: #fff;
+    font-weight: 600;
+    font-size: .85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sidebar-user-logout {
+    color: var(--md-text-muted) !important;
+    font-size: .75rem;
+}
+.sidebar-user-logout:hover {
+    color: var(--md-primary) !important;
+}
+
+.sidebar .sidebar-menu {
+    padding: 10px 12px;
+}
+.sidebar .sidebar-menu > li {
+    margin-bottom: 3px;
+}
+.nav-section-label {
+    padding: 14px 12px 6px;
+}
+.nav-section-label span {
+    color: var(--md-text-muted);
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-weight: 700;
+}
+.sidebar .sidebar-menu > li > a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: .65rem;
+    color: rgba(255, 255, 255, .65) !important;
+    transition: background .15s ease, color .15s ease;
+}
+.nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    font-size: 15px;
+}
+.sidebar .sidebar-menu > li > a .nav-text {
+    flex: 1 1 auto;
+}
+.sidebar .sidebar-menu .arrow {
+    margin-left: auto;
+}
+.sidebar .sidebar-menu li a:hover {
+    background-color: var(--md-card-bg) !important;
+    color: #fff !important;
+}
+.sidebar .sidebar-menu > li.active > a,
+.sidebar .sidebar-menu > li.active > a:hover {
+    background: var(--md-primary) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(233, 30, 99, .4);
+}
+
+/* ------------------------------------------------------------
+   Submenú "Análisis": toggle propio (ver el <script> al final de
+   base.html), NO usa MetisMenu. La plantilla trae esa librería para
+   este mismo propósito, pero su animación (anima la altura con
+   jQuery y depende de recibir el evento de fin de transición) se
+   pisaba con el resto de nuestro CSS y el submenú terminaba
+   abriéndose y cerrándose solo. En vez de seguir ajustando esa
+   integración a ciegas, se lo reemplazó por un mecanismo simple y
+   100% propio: una clase "menu-abierto" en el <li>, con la altura
+   animada acá con una transición de max-height — sin JavaScript
+   calculando alturas ni clases intermedias que puedan pisarse entre
+   sí.
+   ------------------------------------------------------------ */
+.sidebar .sidebar-menu > li.submenu > ul.sidebar-nav {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .3s ease;
+}
+.sidebar .sidebar-menu > li.submenu.menu-abierto > ul.sidebar-nav {
+    max-height: 500px;
+}
+.sidebar .sidebar-menu > li.submenu > a .arrow {
+    transition: transform .2s ease;
+}
+.sidebar .sidebar-menu > li.submenu.menu-abierto > a .arrow {
+    transform: rotate(90deg);
+}
+.sidebar .sidebar-menu > li.submenu.menu-abierto > a.submenu-toggle {
+    background-color: var(--md-card-bg);
+    color: #fff !important;
+}
+.sidebar .sidebar-menu > li > .sidebar-nav > li a {
+    background-color: transparent;
+    border-radius: .6rem;
+    margin: 2px 0;
+    color: rgba(255, 255, 255, .5);
+}
+.sidebar .sidebar-menu > li > .sidebar-nav > li a:hover {
+    background-color: var(--md-card-bg);
+    color: #fff;
+}
+.sidebar .sidebar-menu > li > .sidebar-nav > li.active a {
+    color: var(--md-primary) !important;
+    background-color: rgba(233, 30, 99, .12);
+    font-weight: 600;
+}
+
+/* Sidebar colapsado a modo "solo íconos" */
+.app.sidebar-mini {
+    padding-left: 80px;
+}
+.app.sidebar-mini .header {
+    left: 80px;
+}
+.app.sidebar-mini .sidebar {
+    width: 80px;
+}
+.app.sidebar-mini .nav-text,
+.app.sidebar-mini .sidebar-menu .arrow,
+.app.sidebar-mini .nav-section-label,
+.app.sidebar-mini .sidebar-menu .sidebar-nav {
+    display: none !important;
+}
+.app.sidebar-mini .sidebar-header .brand {
+    justify-content: center;
+}
+.app.sidebar-mini .sidebar-header .brand-logo {
+    display: none;
+}
+.app.sidebar-mini .sidebar-header .brand-logo-mini {
+    display: block;
+}
+.app.sidebar-mini .sidebar-user {
+    justify-content: center;
+    padding: 16px 0;
+}
+.app.sidebar-mini .sidebar .sidebar-menu > li > a {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* ---------- Header ---------- */
+.header {
+    background-color: transparent !important;
+    box-shadow: none;
+    border-bottom: 1px solid var(--md-border);
+}
+.collapse-btn {
+    color: var(--md-text-muted);
+    background: none;
+    border: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+}
+.collapse-btn:hover {
+    color: var(--md-text);
+}
+
+/* Grupo izquierdo del header: hamburguesa(s) + breadcrumb, juntos.
+   min-width: 0 es necesario para que el hijo (el breadcrumb) pueda
+   angostarse por debajo de su ancho de contenido dentro del flex del
+   header — sin esto, un título largo empuja al grupo de íconos de la
+   derecha fuera de la pantalla en vez de truncarse (bug clásico de
+   flexbox en mobile). */
+.header .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+/* Breadcrumb (izquierda del header): "Sección / Página actual" */
+.header-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .95rem;
+    min-width: 0;
+}
+.breadcrumb-seccion {
+    color: var(--md-text-muted);
+    white-space: nowrap;
+}
+.breadcrumb-sep {
+    color: var(--md-text-muted);
+    opacity: .5;
+}
+.breadcrumb-actual {
+    color: var(--md-text);
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Buscador (derecha del header). Selector con la misma especificidad
+   que ".header .header-block-buttons" de la plantilla base (que le
+   pone "margin: 0 auto" para centrarlo) — se neutraliza acá para que
+   quede pegado a la derecha, como en la referencia. */
+.header .header-block-buttons {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-left: 0;
+    margin-right: 0;
+    text-align: left;
+}
+.header-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--md-bg-alt);
+    border: 1px solid var(--md-border);
+    border-radius: 999px;
+    padding: 7px 16px;
+    color: var(--md-text-muted);
+}
+.header-search input {
+    background: transparent;
+    border: none;
+    color: var(--md-text);
+    font-size: .85rem;
+    width: 140px;
+    outline: none;
+}
+.header-search input::placeholder {
+    color: var(--md-text-muted);
+}
+.header-search input:disabled {
+    cursor: not-allowed;
+}
+
+/* Íconos del header (perfil, config, notificaciones) */
+.header-icon-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.header-icon-wrap {
+    position: relative;
+}
+.header-icon {
+    background: none;
+    border: none;
+    color: var(--md-text-muted);
+    font-size: 1.15rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+.header-icon:hover {
+    color: var(--md-text);
+}
+.header-badge {
+    position: absolute;
+    top: -8px;
+    right: -10px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--md-primary);
+    color: #fff;
+    font-size: .65rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+/* Dropdown de perfil */
+.header-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    min-width: 190px;
+    background-color: var(--md-card-bg);
+    border: 1px solid var(--md-border);
+    border-radius: .6rem;
+    box-shadow: var(--md-card-shadow);
+    padding: 10px 0;
+    z-index: 30;
+}
+.header-dropdown.mostrar {
+    display: block;
+}
+.header-dropdown-nombre {
+    padding: 4px 16px 8px;
+    color: var(--md-text);
+    font-weight: 600;
+    font-size: .85rem;
+    border-bottom: 1px solid var(--md-border);
+    margin-bottom: 6px;
+}
+.header-dropdown a {
+    display: block;
+    padding: 6px 16px;
+    color: var(--md-text-muted) !important;
+    font-size: .85rem;
+}
+.header-dropdown a:hover {
+    background-color: var(--md-bg-alt);
+    color: var(--md-text) !important;
+}
+
+@media (max-width: 767.98px) {
+    .header-search {
+        display: none;
+    }
+    /* En una pantalla angosta el celular ya "sabe" en qué sección está
+       (se llegó ahí navegando el menú); mostrar solo la página actual
+       dentro del breadcrumb deja más aire para el título y los íconos
+       de la derecha. */
+    .breadcrumb-seccion, .breadcrumb-sep {
+        display: none;
+    }
+    .header .header-left {
+        gap: 10px;
+    }
+    .header .header-block-buttons {
+        gap: 10px;
+    }
+}
+
+/* ---------- Título de página ---------- */
+.title-block .title {
+    color: var(--md-text);
+    font-weight: 700;
+}
+.title-block .title-description {
+    color: var(--md-text-muted);
+}
+h1, h2, h3, h4, h5, h6 { color: var(--md-text); }
+
+/* ---------- Tarjetas ---------- */
+.card {
+    background-color: var(--md-card-bg);
+    border: 1px solid var(--md-card-border);
+    border-radius: var(--md-card-radius);
+    box-shadow: var(--md-card-shadow);
+}
+.card-title-block {
+    margin-bottom: 16px;
+}
+.card-title-block .title {
+    color: var(--md-text);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+/* ---------- Botones ---------- */
+.btn.btn-primary,
+.btn.bg-gradient-primary {
+    background: var(--md-primary) !important;
+    border: none !important;
+    border-radius: .6rem;
+    box-shadow: 0 4px 12px rgba(233, 30, 99, .35);
+    color: #fff !important;
+}
+.btn.btn-primary:hover,
+.btn.btn-primary:focus {
+    background: var(--md-primary-dark) !important;
+    box-shadow: 0 6px 16px rgba(233, 30, 99, .45);
+}
+.btn-outline-secondary {
+    border-radius: .6rem;
+    color: var(--md-text-muted);
+    border-color: var(--md-border);
+}
+.btn-outline-secondary:hover {
+    background-color: var(--md-card-bg);
+    color: var(--md-text);
+    border-color: var(--md-border);
+}
+
+/* ---------- Formularios ---------- */
+.form-control, .custom-select, select, input[type="text"], input[type="number"], input[type="file"] {
+    background-color: var(--md-bg-alt) !important;
+    border: 1px solid var(--md-border) !important;
+    color: var(--md-text) !important;
+    border-radius: .5rem;
+}
+.form-control:focus, select:focus {
+    border-color: var(--md-primary) !important;
+    box-shadow: 0 0 0 .15rem rgba(233, 30, 99, .25) !important;
+    background-color: var(--md-bg-alt) !important;
+    color: var(--md-text) !important;
+}
+.form-control::placeholder { color: var(--md-text-muted); opacity: 1; }
+label, .form-label, .form-text { color: var(--md-text-muted); }
+
+/* ---------- Tablas ---------- */
+.table {
+    color: var(--md-text-muted);
+}
+.table thead th {
+    text-transform: uppercase;
+    font-size: .7rem;
+    letter-spacing: .04em;
+    color: var(--md-text-muted);
+    border-top: none;
+    border-bottom: 1px solid var(--md-border);
+    font-weight: 700;
+}
+.table td, .table th {
+    border-top: 1px solid var(--md-border);
+    vertical-align: middle;
+    color: var(--md-text-muted);
+}
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(255, 255, 255, .02);
+}
+.table-hover tbody tr:hover {
+    background-color: rgba(233, 30, 99, .08);
+    color: var(--md-text);
+}
+.table-danger, .table-danger > td, .table-danger > th {
+    background-color: rgba(233, 30, 99, .1) !important;
+    color: var(--md-text) !important;
+}
+.text-primary { color: var(--md-primary) !important; }
+.text-muted { color: var(--md-text-muted) !important; }
+strong, b { color: var(--md-text); }
+
+/* ---------- Badges ---------- */
+.badge {
+    border-radius: 12px;
+    padding: .4em .8em;
+    font-weight: 600;
+    font-size: .75em;
+}
+.badge-info {
+    background-color: rgba(23, 193, 232, .15);
+    color: var(--md-cyan);
+}
+.badge-light {
+    background-color: rgba(255, 255, 255, .08);
+    color: var(--md-text-muted);
+}
+.badge-danger {
+    background-color: rgba(233, 30, 99, .15);
+    color: #ff6b9d;
+}
+.badge-success {
+    background-color: rgba(45, 206, 137, .15);
+    color: var(--md-success);
+}
+
+/* ---------- Alertas ---------- */
+.alert-danger {
+    background: linear-gradient(60deg, #ea0606, #ff5825);
+    border: none;
+    color: #fff;
+}
+.alert-info {
+    background: linear-gradient(60deg, #1f8ef1, #3358f4);
+    border: none;
+    color: #fff;
+}
+
+/* ---------- Tarjetas KPI (stats, ver inventario.html) ---------- */
+.stats .stat-col {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.stats .stat-icon {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: .75rem;
+    background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
+    color: #fff;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(233, 30, 99, .35);
+}
+.stats .stat {
+    display: block;
+    overflow: visible;
+}
+.stats .stat .value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--md-text);
+    line-height: 1.2;
+}
+.stats .stat .name {
+    color: var(--md-text-muted);
+    font-size: .8rem;
+}
+.stats .stat-progress {
+    margin-top: 6px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--md-bg-alt);
+}
+.stats .stat-progress .progress-bar {
+    background-color: var(--md-primary);
+}
+
+/* ---------- DataTables (buscador y paginación) ---------- */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_info {
+    color: var(--md-text-muted);
+}
+.dataTables_wrapper .dataTables_filter input,
+.dataTables_wrapper .dataTables_length select {
+    background-color: var(--md-bg-alt);
+    border: 1px solid var(--md-border);
+    color: var(--md-text);
+    border-radius: .4rem;
+}
+.dataTables_wrapper .pagination .page-link {
+    background-color: transparent;
+    border: 1px solid var(--md-border);
+    color: var(--md-text-muted);
+    border-radius: .4rem !important;
+    margin: 0 2px;
+}
+.dataTables_wrapper .pagination .page-item.active .page-link {
+    background-color: var(--md-primary);
+    border-color: var(--md-primary);
+    color: #fff;
+}
+.dataTables_wrapper .pagination .page-item.disabled .page-link {
+    background-color: transparent;
+    color: rgba(255, 255, 255, .25);
+}

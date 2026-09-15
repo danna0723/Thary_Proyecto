@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block titulo %}Presupuesto y costos{% endblock %}
+{% block encabezado %}Presupuesto y costos{% endblock %}
+{% block titulo_pagina %}Reposición, presupuesto y costos{% endblock %}
+{% block subtitulo_pagina %}
+Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra tu presupuesto disponible.
+{% endblock %}
+
+{% block contenido %}
+{% set alertas = r.reorder | selectattr("ordenar", "equalto", "SI") | list | sort(attribute="cantidad_sugerida_pedido", reverse=True) %}
+{% set top_costos = alertas | selectattr("costo_estimado_pedido", "ne", none) | list | sort(attribute="costo_estimado_pedido", reverse=True) %}
+{% set top_costos_chart = top_costos[:10] %}
+{% set presupuesto_restante = (r.presupuesto_capital_trabajo - r.costo_total_pedidos_urgentes) if r.presupuesto_capital_trabajo else 0 %}
+{% set presupuesto_restante = presupuesto_restante if presupuesto_restante > 0 else 0 %}
+
+<p class="text-muted small">
+    <strong>Stock de seguridad</strong>: colchón extra para no quedarse sin stock si la
+    demanda o el proveedor se retrasan de lo esperado.
+    <strong>Punto de reorden</strong>: nivel de inventario en el que hay que volver a pedir
+    (demanda esperada durante el tiempo de entrega + ese colchón).
+</p>
+{% if r.presupuesto_capital_trabajo %}
+<p class="text-muted small">
+    <strong>Presupuesto</strong>: la cantidad sugerida a pedir respeta un presupuesto total
+    de <strong>${{ r.presupuesto_capital_trabajo | moneda }}</strong>, repartido en
+    partes iguales entre los productos del catálogo (${{ r.presupuesto_por_producto | moneda }}
+    por producto). Cambia este monto subiendo el archivo de nuevo con otro valor en el
+    formulario.
+</p>
+{% endif %}
+{% if alertas and r.costo_total_pedidos_urgentes %}
+<div class="alert alert-info">
+    Costo estimado de hacer estos {{ alertas | length }} pedidos ahora:
+    <strong>${{ r.costo_total_pedidos_urgentes | moneda }}</strong>
+    {% if r.presupuesto_capital_trabajo %}
+    (de un presupuesto total de ${{ r.presupuesto_capital_trabajo | moneda }})
+    {% endif %}
+</div>
+{% endif %}
+
+{% if alertas and r.presupuesto_capital_trabajo and top_costos_chart %}
+<div class="row sameheight-container">
+    <div class="col-12 col-md-5">
+        <div class="card sameheight-item">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title">Presupuesto usado vs. disponible</h3>
+                </div>
+                <div class="chart" id="grafica-presupuesto" style="height: 260px;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-7">
+        <div class="card sameheight-item">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title">Costo estimado por producto (top {{ top_costos_chart | length }})</h3>
+                </div>
+                <div class="chart" id="grafica-top-costos" style="height: 260px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="title-block">
+    <h2 class="title">Puntos de reposición y alertas</h2>
+    <p class="title-description">
+        Combina el pronóstico de demanda con el inventario actual y el tiempo de entrega de
+        cada proveedor para avisar qué productos hay que pedir ya.
+        {% if r.reorder %}
+        <strong>{{ alertas | length }} de {{ r.reorder | length }}</strong> productos necesitan pedido ahora.
+        {% endif %}
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                {% if alertas %}
+                <div class="table-responsive">
+                    <table class="table table-hover tabla-buscable">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                <th>Proveedor</th>
+                                <th>Inventario actual</th>
+                                <th>Stock de seguridad</th>
+                                <th>Punto de reorden</th>
+                                <th>Tiempo de entrega del proveedor</th>
+                                <th>Cantidad sugerida a pedir</th>
+                                <th>Costo estimado del pedido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fila in alertas %}
+                            <tr class="table-danger">
+                                <td>
+                                    {{ fila.producto_id }}
+                                    {% if fila.nombre_producto %}
+                                    <small class="d-block text-muted">{{ fila.nombre_producto }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if fila.categoria %}
+                                    <span class="badge badge-info">{{ fila.categoria }}</span>
+                                    {% else %}
+                                    <span class="badge badge-light text-muted">Sin categoría</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if fila.proveedor_principal %}
+                                    {{ fila.proveedor_principal }}
+                                    {% if fila.proveedor_alterno %}
+                                    <small class="d-block text-muted">Alterno: {{ fila.proveedor_alterno }}</small>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ fila.inventario_actual if fila.inventario_actual is not none else "—" }}</td>
+                                <td>{{ fila.stock_seguridad }}</td>
+                                <td>{{ fila.punto_reorden }}</td>
+                                <td>{{ fila.lead_time_semanas }} semana(s)</td>
+                                <td><strong class="text-primary">{{ fila.cantidad_sugerida_pedido if fila.cantidad_sugerida_pedido is not none else "—" }}</strong></td>
+                                <td>{{ "$" + (fila.costo_estimado_pedido | moneda) if fila.costo_estimado_pedido is not none else "—" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Ningún producto necesita reposición por ahora, según el inventario y el pronóstico actuales.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% set proximos = r.reorder
+    | selectattr("ordenar", "equalto", "NO")
+    | selectattr("dias_para_pedido", "ne", none)
+    | selectattr("dias_para_pedido", "le", 90)
+    | list
+    | sort(attribute="dias_para_pedido") %}
+<div class="title-block">
+    <h2 class="title">Próximos pedidos (siguientes 90 días)</h2>
+    <p class="title-description">
+        Fecha estimada en la que cada producto va a llegar a su punto de reorden, calculada
+        a partir del inventario actual y el ritmo de consumo pronosticado — todavía no hay que
+        pedirlos, pero conviene tenerlos en el radar.
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                {% if proximos %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover tabla-buscable">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                <th>Fecha estimada de pedido</th>
+                                <th>Días restantes</th>
+                                <th>Inventario actual</th>
+                                <th>Punto de reorden</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fila in proximos %}
+                            <tr>
+                                <td>
+                                    {{ fila.producto_id }}
+                                    {% if fila.nombre_producto %}
+                                    <small class="d-block text-muted">{{ fila.nombre_producto }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if fila.categoria %}
+                                    <span class="badge badge-info">{{ fila.categoria }}</span>
+                                    {% else %}
+                                    <span class="badge badge-light text-muted">Sin categoría</span>
+                                    {% endif %}
+                                </td>
+                                <td><strong class="text-primary">{{ fila.fecha_estimada_pedido }}</strong></td>
+                                <td>{{ fila.dias_para_pedido }}</td>
+                                <td>{{ fila.inventario_actual if fila.inventario_actual is not none else "—" }}</td>
+                                <td>{{ fila.punto_reorden }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Ningún producto va a necesitar reposición en los próximos 90 días, según el ritmo de consumo pronosticado.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="text-muted small">
+    La fecha de pedido es una estimación lineal (asume que se consume al ritmo promedio
+    pronosticado); no anticipa picos puntuales de demanda dentro del mes.
+</p>
+
+<p class="text-muted small">
+    <a href="{{ url_for('main.desarrollo') }}">Ver el detalle técnico de cómo se calculó este pronóstico &rarr;</a>
+</p>
+
+{% if alertas and r.presupuesto_capital_trabajo and top_costos_chart %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    Morris.Donut({
+        element: 'grafica-presupuesto',
+        data: [
+            { label: "Costo de pedidos urgentes", value: {{ r.costo_total_pedidos_urgentes }} },
+            { label: "Presupuesto disponible restante", value: {{ presupuesto_restante }} }
+        ],
+        resize: true,
+        colors: ['#e91e63', '#3a3a52']
+    });
+
+    Morris.Bar({
+        element: 'grafica-top-costos',
+        data: [
+            {% for fila in top_costos_chart %}
+            { producto: {{ (fila.nombre_producto or fila.producto_id) | tojson }}, costo: {{ fila.costo_estimado_pedido }} }{{ "," if not loop.last }}
+            {% endfor %}
+        ],
+        xkey: 'producto',
+        ykeys: ['costo'],
+        labels: ['Costo estimado ($)'],
+        barColors: ['#e91e63'],
+        hideHover: 'auto',
+        resize: true
+    });
+});
+</script>
+{% endif %}
+{% endblock %}
