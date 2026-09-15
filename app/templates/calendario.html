@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block titulo %}Calendario de pedidos — Sistema de Predicción de Demanda e Inventario{% endblock %}
+{% block encabezado %}Calendario{% endblock %}
+{% block titulo_pagina %}Calendario de pedidos{% endblock %}
+{% block subtitulo_pagina %}Cuándo hay que pedir cada producto, y cuánto, en un solo vistazo.{% endblock %}
+
+{% block contenido %}
+{% set urgentes = eventos | selectattr("urgente") | list %}
+
+{% if not eventos %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                <p class="text-muted mb-0">
+                    Ningún producto tiene una fecha de pedido estimada todavía — hace falta que el
+                    archivo tenga la columna de inventario actual para poder calcular esto.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+
+{% if urgentes %}
+<div class="alert alert-info">
+    <i class="fa fa-exclamation-circle"></i>
+    Hoy hay <strong>{{ urgentes | length }}</strong> producto(s) que ya necesitan pedido — están marcados en rojo en el calendario.
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-block">
+                <div class="calendario-encabezado">
+                    <button type="button" class="calendario-nav" id="cal-anterior" title="Mes anterior"><i class="fa fa-chevron-left"></i></button>
+                    <h3 class="calendario-titulo" id="cal-titulo"></h3>
+                    <button type="button" class="calendario-nav" id="cal-siguiente" title="Mes siguiente"><i class="fa fa-chevron-right"></i></button>
+                </div>
+                <div class="calendario-leyenda">
+                    <span><span class="calendario-punto calendario-punto-urgente"></span> Hay que pedir ya</span>
+                    <span><span class="calendario-punto calendario-punto-proximo"></span> Pedido estimado a futuro</span>
+                </div>
+                <div class="calendario-dias-semana">
+                    <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+                </div>
+                <div class="calendario-grilla" id="cal-grilla"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title" id="detalle-titulo">Detalle del día</h3>
+                </div>
+                <div id="detalle-contenido">
+                    <p class="text-muted small mb-0">Elige un día con pedidos marcados para ver el detalle.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var eventos = {{ eventos | tojson }};
+    if (!eventos.length) return;
+
+    var porFecha = {};
+    eventos.forEach(function (ev) {
+        (porFecha[ev.fecha] = porFecha[ev.fecha] || []).push(ev);
+    });
+
+    var MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    var hoy = new Date();
+    var hoyStr = formatearFecha(hoy);
+    var mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    var seleccionada = hoyStr;
+
+    var titulo = document.getElementById("cal-titulo");
+    var grilla = document.getElementById("cal-grilla");
+    var detalleTitulo = document.getElementById("detalle-titulo");
+    var detalleContenido = document.getElementById("detalle-contenido");
+
+    function formatearFecha(fecha) {
+        var m = String(fecha.getMonth() + 1).padStart(2, "0");
+        var d = String(fecha.getDate()).padStart(2, "0");
+        return fecha.getFullYear() + "-" + m + "-" + d;
+    }
+
+    function formatoMoneda(valor) {
+        return "$" + Math.round(valor).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function renderCalendario() {
+        titulo.textContent = MESES[mesActual.getMonth()] + " " + mesActual.getFullYear();
+        grilla.innerHTML = "";
+
+        var primerDiaSemana = mesActual.getDay();
+        var diasEnMes = new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 0).getDate();
+
+        for (var i = 0; i < primerDiaSemana; i++) {
+            var relleno = document.createElement("div");
+            relleno.className = "calendario-celda calendario-celda-vacia";
+            grilla.appendChild(relleno);
+        }
+
+        for (var dia = 1; dia <= diasEnMes; dia++) {
+            var fechaDia = new Date(mesActual.getFullYear(), mesActual.getMonth(), dia);
+            var fechaStr = formatearFecha(fechaDia);
+            var eventosDia = porFecha[fechaStr] || [];
+            var hayUrgente = eventosDia.some(function (e) { return e.urgente; });
+
+            var celda = document.createElement("div");
+            celda.className = "calendario-celda";
+            if (fechaStr === hoyStr) celda.classList.add("calendario-celda-hoy");
+            if (fechaStr === seleccionada) celda.classList.add("calendario-celda-seleccionada");
+            if (eventosDia.length) celda.classList.add("calendario-celda-con-eventos");
+
+            var numero = document.createElement("span");
+            numero.className = "calendario-numero";
+            numero.textContent = dia;
+            celda.appendChild(numero);
+
+            if (eventosDia.length) {
+                var badge = document.createElement("span");
+                badge.className = "calendario-badge " + (hayUrgente ? "calendario-badge-urgente" : "calendario-badge-proximo");
+                badge.textContent = eventosDia.length;
+                celda.appendChild(badge);
+
+                celda.addEventListener("click", function (fechaClick) {
+                    return function () {
+                        seleccionada = fechaClick;
+                        renderCalendario();
+                        renderDetalle();
+                    };
+                }(fechaStr));
+            }
+
+            grilla.appendChild(celda);
+        }
+    }
+
+    function renderDetalle() {
+        var eventosDia = porFecha[seleccionada] || [];
+        var fechaLegible = seleccionada.split("-").reverse().join("/");
+        detalleTitulo.textContent = "Detalle del " + fechaLegible;
+
+        if (!eventosDia.length) {
+            detalleContenido.innerHTML = '<p class="text-muted small mb-0">Ningún producto tiene pedido programado para este día.</p>';
+            return;
+        }
+
+        var totalCantidad = 0, totalCosto = 0, conCosto = false;
+        var html = '<ul class="calendario-detalle-lista">';
+        eventosDia.forEach(function (ev) {
+            totalCantidad += ev.cantidad || 0;
+            if (ev.costo !== null && ev.costo !== undefined) { totalCosto += ev.costo; conCosto = true; }
+            html += '<li class="calendario-detalle-item' + (ev.urgente ? ' calendario-detalle-item-urgente' : '') + '">';
+            html += '<div class="calendario-detalle-producto">' + (ev.nombre_producto || ev.producto_id);
+            html += '<small class="d-block text-muted">' + ev.producto_id + (ev.proveedor ? " · " + ev.proveedor : "") + '</small></div>';
+            html += '<div class="calendario-detalle-cantidad">' + (ev.cantidad !== null ? ev.cantidad + ' u.' : '—') + '</div>';
+            html += '</li>';
+        });
+        html += '</ul>';
+        html += '<div class="calendario-detalle-total">Total: <strong>' + totalCantidad + ' unidades</strong>';
+        if (conCosto) html += ' &middot; <strong>' + formatoMoneda(totalCosto) + '</strong>';
+        html += '</div>';
+        detalleContenido.innerHTML = html;
+    }
+
+    document.getElementById("cal-anterior").addEventListener("click", function () {
+        mesActual = new Date(mesActual.getFullYear(), mesActual.getMonth() - 1, 1);
+        renderCalendario();
+    });
+    document.getElementById("cal-siguiente").addEventListener("click", function () {
+        mesActual = new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 1);
+        renderCalendario();
+    });
+
+    renderCalendario();
+    renderDetalle();
+});
+</script>
+{% endblock %}

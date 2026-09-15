@@ -56,7 +56,7 @@ def resultado():
             "producto_id": "B200", "fecha": FECHA_REFERENCIA,
             "lead_time_semanas": 4.345,  # -> 4.345 / 4.345 = 1.0 mes exacto
             "costo_pedido": 50_000, "porcentaje_costo_mantenimiento": 0.2,
-            "costo_unitario": 2_000, "inventario": 200,
+            "costo_unitario": 2_000, "inventario": 200, "precio": 2_800,
         },
         {
             "producto_id": "C300", "fecha": FECHA_REFERENCIA,
@@ -216,6 +216,16 @@ class TestB200EOQSinLimiteDePresupuesto:
         # días para llegar al punto de reorden: (200-100) / (100/30.44) = 30.44 días
         assert f["dias_para_pedido"] == pytest.approx(30, abs=1)
 
+    def test_costo_de_ruptura_estimado(self, resultado):
+        """Con precio=2.800 y costo_unitario=2.000, margen = 800/unidad.
+        demanda_diaria × lead_time_dias se simplifica exactamente a
+        demanda_promedio × lead_time_meses (30.44 se cancela), así que:
+        costo_ruptura = 800 × 100 × 1.0 = 80.000 — el margen que se
+        perdería si el producto se agota durante todo el lead time."""
+        f = fila(resultado, "B200")
+        assert f["margen_unitario"] == pytest.approx(800.0)
+        assert f["costo_ruptura_estimado"] == pytest.approx(80_000.0, abs=1)
+
 
 class TestC300EOQLimitadoPorElPresupuesto:
     """
@@ -252,3 +262,11 @@ class TestC300EOQLimitadoPorElPresupuesto:
         assert f["fecha_estimada_pedido"] is None
         assert f["dias_para_pedido"] is None
         assert f["valor_inventario_actual"] is None
+
+    def test_sin_precio_no_hay_costo_de_ruptura(self, resultado):
+        """C300 tiene costo_unitario pero no precio — sin margen conocido
+        no se puede estimar el costo de ruptura, tiene que quedar en
+        None (no en 0, que implicaría "sin costo de ruptura")."""
+        f = fila(resultado, "C300")
+        assert f["margen_unitario"] is None
+        assert f["costo_ruptura_estimado"] is None

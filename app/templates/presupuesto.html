@@ -13,6 +13,62 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
 {% set top_costos_chart = top_costos[:10] %}
 {% set presupuesto_restante = (r.presupuesto_capital_trabajo - r.costo_total_pedidos_urgentes) if r.presupuesto_capital_trabajo else 0 %}
 {% set presupuesto_restante = presupuesto_restante if presupuesto_restante > 0 else 0 %}
+{% set ruptura_alertas = alertas | selectattr("costo_ruptura_estimado", "ne", none) | list %}
+{% set costo_ruptura_total = ruptura_alertas | sum(attribute="costo_ruptura_estimado") %}
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title">Costos del inventario</h3>
+                </div>
+                <p class="text-muted small">
+                    Todo inventario tiene tres tipos de costo asociado — esta pantalla calcula
+                    los tres, cada uno a partir de datos distintos del archivo subido.
+                </p>
+                <div class="row costos-inventario-grid">
+                    <div class="col-12 col-md-4">
+                        <div class="costo-tipo-card">
+                            <div class="costo-tipo-icono costo-tipo-pedido"><i class="fa fa-file-text-o"></i></div>
+                            <h4>Costo de pedidos</h4>
+                            <p class="text-muted small mb-0">
+                                Lo que cuesta cada orden de compra (gestión, transporte, procesamiento).
+                                Se usa junto con el costo de mantenimiento para calcular la <strong>cantidad
+                                óptima de pedido (EOQ)</strong> — pedir de más ahorra en costo de pedidos
+                                repetidos, pero encarece el almacenamiento.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="costo-tipo-card">
+                            <div class="costo-tipo-icono costo-tipo-almacenamiento"><i class="fa fa-archive"></i></div>
+                            <h4>Costo de almacenamiento</h4>
+                            <p class="text-muted small mb-0">
+                                Lo que cuesta mantener el stock guardado (espacio, seguro, obsolescencia),
+                                expresado como <code>Porcentaje_costo_mantenimiento</code> sobre el costo
+                                unitario. A mayor inventario, mayor este costo — por eso el EOQ no
+                                recomienda pedir "todo de una vez".
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="costo-tipo-card">
+                            <div class="costo-tipo-icono costo-tipo-ruptura"><i class="fa fa-exclamation-triangle"></i></div>
+                            <h4>Costo de ruptura (stockout)</h4>
+                            <p class="text-muted small mb-0">
+                                La venta que se pierde si el producto se agota antes de que llegue el
+                                próximo pedido. Se estima con el margen por unidad (Precio − Costo_unitario)
+                                multiplicado por la demanda esperada durante el tiempo de entrega del
+                                proveedor — columna <strong>"Riesgo si no se pide"</strong> en la tabla de abajo.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <p class="text-muted small">
     <strong>Stock de seguridad</strong>: colchón extra para no quedarse sin stock si la
@@ -36,6 +92,14 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
     {% if r.presupuesto_capital_trabajo %}
     (de un presupuesto total de ${{ r.presupuesto_capital_trabajo | moneda }})
     {% endif %}
+</div>
+{% endif %}
+{% if ruptura_alertas %}
+<div class="alert alert-danger">
+    <i class="fa fa-exclamation-triangle"></i>
+    Si estos {{ ruptura_alertas | length }} producto(s) no se piden a tiempo, se estima que se
+    dejaría de ganar hasta <strong>${{ costo_ruptura_total | moneda }}</strong> en
+    margen durante el tiempo que tarde en llegar el siguiente pedido.
 </div>
 {% endif %}
 
@@ -93,6 +157,7 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                                 <th>Tiempo de entrega del proveedor</th>
                                 <th>Cantidad sugerida a pedir</th>
                                 <th>Costo estimado del pedido</th>
+                                <th>Riesgo si no se pide</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -127,6 +192,13 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                                 <td>{{ fila.lead_time_semanas }} semana(s)</td>
                                 <td><strong class="text-primary">{{ fila.cantidad_sugerida_pedido if fila.cantidad_sugerida_pedido is not none else "—" }}</strong></td>
                                 <td>{{ "$" + (fila.costo_estimado_pedido | moneda) if fila.costo_estimado_pedido is not none else "—" }}</td>
+                                <td>
+                                    {% if fila.costo_ruptura_estimado is not none %}
+                                    <span class="text-danger">${{ fila.costo_ruptura_estimado | moneda }}</span>
+                                    {% else %}
+                                    <span class="text-muted" title="Falta la columna Precio en el archivo">—</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>

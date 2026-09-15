@@ -49,7 +49,7 @@ def cargar_y_limpiar(ruta_archivo):
         "Sale_Date": "fecha", "Date": "fecha", "date": "fecha", "Fecha": "fecha",
         "Product_ID": "producto_id", "Product": "producto_id", "Producto": "producto_id",
         "Quantity_Sold": "demanda", "Sales": "demanda", "Demand": "demanda", "Demanda": "demanda",
-        "Unit_Price": "precio", "Price": "precio", "Price_per_unit": "precio",
+        "Unit_Price": "precio", "Price": "precio", "Price_per_unit": "precio", "Precio": "precio",
         "Inventario_Actual": "inventario", "Inventory": "inventario", "Stock": "inventario",
         "Store": "tienda_id", "Store_ID": "tienda_id",
         "Category": "categoria", "Product_Category": "categoria",

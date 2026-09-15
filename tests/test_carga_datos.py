@@ -51,6 +51,26 @@ def test_acepta_nombres_de_columna_en_ingles(tmp_path):
     assert not df.empty
 
 
+def test_reconoce_la_columna_precio_en_espanol(tmp_path):
+    """Bug encontrado en producción: la pantalla de carga documenta
+    "Precio" como nombre de columna aceptado (ver index.html), pero el
+    diccionario de renombres solo tenía las variantes en inglés
+    (Unit_Price/Price/Price_per_unit) — un archivo con la columna
+    "Precio" tal cual se quedaba sin ese dato silenciosamente, sin
+    ningún error que avisara. Esto rompía el cálculo de costo de
+    ruptura de inventario en reposicion.py, que depende del precio
+    para estimar el margen por unidad."""
+    ruta = escribir_csv(
+        tmp_path,
+        "Fecha,Producto,Demanda,Precio\n"
+        "2026-01-15,P1,10,5000\n2026-02-15,P1,12,5000\n"
+        "2026-03-15,P1,11,5000\n2026-04-15,P1,13,5000\n",
+    )
+    df = cargar_y_limpiar(ruta)
+    assert "precio" in df.columns
+    assert (df["precio"] == 5000).all()
+
+
 def test_fechas_y_demanda_invalidas_en_todas_las_filas(tmp_path):
     """Todas las filas tienen basura en fecha y demanda -> después de
     limpiar no queda ninguna fila válida. Tiene que fallar con un

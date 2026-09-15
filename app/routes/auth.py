@@ -6,6 +6,7 @@ from app.services.auth import (
     listar_usuarios,
     verificar_credenciales,
 )
+from app.services.actividad import registrar as registrar_actividad
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -82,6 +83,10 @@ def usuarios_nuevo():
             flash(error)
         else:
             flash(f"Cuenta creada para {usuario['nombre']} ({usuario['rol']}).")
+            registrar_actividad(
+                session["empresa_id"], session.get("username"), session.get("nombre") or session.get("username"),
+                "usuario_creado", f"Creó la cuenta de {usuario['nombre']} (rol: {usuario['rol']}).",
+            )
         return redirect(url_for("auth.usuarios_nuevo"))
 
     return render_template("usuarios.html", usuarios=listar_usuarios(session["empresa_id"]))

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block titulo %}Actividad de la empresa — Sistema de Predicción de Demanda e Inventario{% endblock %}
+{% block encabezado %}Actividad{% endblock %}
+{% block titulo_pagina %}Actividad de la empresa{% endblock %}
+{% block subtitulo_pagina %}Movimientos de todos los usuarios: subidas de archivo, pedidos confirmados y cuentas creadas.{% endblock %}
+
+{% block contenido %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                {% if movimientos %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover tabla-buscable">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Usuario</th>
+                                <th>Movimiento</th>
+                                <th>Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in movimientos %}
+                            <tr>
+                                <td class="text-nowrap">{{ m.fecha }}</td>
+                                <td>{{ m.nombre_usuario }}</td>
+                                <td>
+                                    {% if m.tipo == 'archivo_subido' %}
+                                    <span class="badge badge-info"><i class="fa fa-upload"></i> Archivo subido</span>
+                                    {% elif m.tipo == 'pedido_confirmado' %}
+                                    <span class="badge badge-success"><i class="fa fa-check"></i> Pedido confirmado</span>
+                                    {% elif m.tipo == 'pedido_deshecho' %}
+                                    <span class="badge badge-danger"><i class="fa fa-undo"></i> Pedido deshecho</span>
+                                    {% elif m.tipo == 'usuario_creado' %}
+                                    <span class="badge badge-light"><i class="fa fa-user-plus"></i> Usuario creado</span>
+                                    {% else %}
+                                    <span class="badge badge-light">{{ m.tipo }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted">{{ m.descripcion }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">Todavía no hay movimientos registrados en esta empresa.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

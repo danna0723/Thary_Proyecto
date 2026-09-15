@@ -118,6 +118,25 @@ TABLAS_DDL = [
         FOREIGN KEY (empresa_id) REFERENCES empresas(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
+    # Bitácora de movimientos: qué usuario hizo qué y cuándo (subir un
+    # CSV, confirmar/deshacer un pedido, crear un empleado). Se usa
+    # tanto para "Mi perfil" (cada usuario ve lo suyo, filtrando por
+    # username) como para "Actividad de la empresa" (el admin ve todo,
+    # filtrando solo por empresa_id). username y nombre_usuario quedan
+    # los dos guardados (no solo un id) para no depender de un JOIN ni
+    # de que el usuario siga existiendo más adelante.
+    """
+    CREATE TABLE IF NOT EXISTS actividad (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        empresa_id VARCHAR(32) NOT NULL,
+        username VARCHAR(80) NOT NULL,
+        nombre_usuario VARCHAR(120) NOT NULL,
+        tipo VARCHAR(30) NOT NULL,
+        descripcion VARCHAR(300) NOT NULL,
+        fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (empresa_id) REFERENCES empresas(id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    """,
     """
     CREATE TABLE IF NOT EXISTS segmentacion (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -274,6 +293,32 @@ def crear_base_de_datos_si_no_existe():
         engine_servidor.dispose()
 
 
+# CREATE TABLE IF NOT EXISTS no altera una tabla que ya existe — en
+# instalaciones que arrancaron antes de agregar estas columnas (como
+# esta máquina), hay que sumarlas a mano. "ADD COLUMN IF NOT EXISTS"
+# de MySQL no funcionó acá (da error de sintaxis pese a estar en la
+# versión que debería soportarlo), así que se verifica primero contra
+# information_schema — funciona en cualquier versión de MySQL.
+COLUMNAS_NUEVAS = [
+    ("reorder", "margen_unitario", "DOUBLE"),
+    ("reorder", "costo_ruptura_estimado", "DOUBLE"),
+]
+
+
+def _agregar_columnas_faltantes(conn):
+    cfg = _config()
+    for tabla, columna, tipo in COLUMNAS_NUEVAS:
+        existe = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :db "
+                "AND TABLE_NAME = :tabla AND COLUMN_NAME = :columna"
+            ),
+            {"db": cfg["database"], "tabla": tabla, "columna": columna},
+        ).first()
+        if existe is None:
+            conn.execute(text(f"ALTER TABLE {tabla} ADD COLUMN {columna} {tipo}"))
+
+
 def crear_tablas():
     """Crea todas las tablas si no existen — se llama una vez al
     arrancar la app (ver app/__init__.py), igual que antes se hacía
@@ -283,3 +328,4 @@ def crear_tablas():
     with engine.begin() as conn:
         for ddl in TABLAS_DDL:
             conn.execute(text(ddl))
+        _agregar_columnas_faltantes(conn)

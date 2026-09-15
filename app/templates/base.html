@@ -12,9 +12,9 @@
     <link rel="stylesheet" href="{{ static_url('css/asistente.css') }}">
 </head>
 <body>
-    {% set analisis_endpoints = ['main.dashboard', 'main.inventario', 'main.presupuesto', 'main.pedido', 'main.pedido_confirmar', 'main.pedido_deshacer'] %}
+    {% set analisis_endpoints = ['main.dashboard', 'main.inventario', 'main.presupuesto', 'main.calendario', 'main.pedido', 'main.pedido_confirmar', 'main.pedido_deshacer'] %}
     {% set analisis_activo = request.endpoint in analisis_endpoints %}
-    {% set seccion_actual = 'Análisis' if analisis_activo else ('Pantallas' if request.endpoint in ['main.desarrollo', 'auth.usuarios_nuevo'] else 'Inicio') %}
+    {% set seccion_actual = 'Análisis' if analisis_activo else ('Pantallas' if request.endpoint in ['main.desarrollo', 'auth.usuarios_nuevo', 'main.actividad_empresa', 'main.perfil'] else 'Inicio') %}
     {% set es_admin = session.get('rol') == 'admin' %}
     <div class="main-wrapper">
         <div class="app" id="app">
@@ -45,6 +45,7 @@
                             </button>
                             <div class="header-dropdown" id="perfil-dropdown">
                                 <div class="header-dropdown-nombre">{{ session.get('nombre') }}</div>
+                                <a href="{{ url_for('main.perfil') }}"><i class="fa fa-user"></i> Mi perfil</a>
                                 <a href="{{ url_for('auth.logout') }}"><i class="fa fa-sign-out"></i> Cerrar sesión</a>
                             </div>
                         </div>
@@ -125,6 +126,12 @@
                                             <span class="nav-text">Presupuesto y costos</span>
                                         </a>
                                     </li>
+                                    <li class="{{ 'active' if request.endpoint == 'main.calendario' }}">
+                                        <a href="{{ url_for('main.calendario') }}" title="Calendario de pedidos">
+                                            <span class="nav-icon"><i class="fa fa-calendar"></i></span>
+                                            <span class="nav-text">Calendario de pedidos</span>
+                                        </a>
+                                    </li>
                                     <li class="{{ 'active' if request.endpoint and request.endpoint.startswith('main.pedido') }}">
                                         <a href="{{ url_for('main.pedido') }}" title="Pedido">
                                             <span class="nav-icon"><i class="fa fa-shopping-cart"></i></span>
@@ -146,7 +153,19 @@
                                     <span class="nav-text">Usuarios</span>
                                 </a>
                             </li>
+                            <li class="{{ 'active' if request.endpoint == 'main.actividad_empresa' }}">
+                                <a href="{{ url_for('main.actividad_empresa') }}" title="Actividad">
+                                    <span class="nav-icon"><i class="fa fa-history"></i></span>
+                                    <span class="nav-text">Actividad</span>
+                                </a>
+                            </li>
                             {% endif %}
+                            <li class="{{ 'active' if request.endpoint == 'main.perfil' }}">
+                                <a href="{{ url_for('main.perfil') }}" title="Mi perfil">
+                                    <span class="nav-icon"><i class="fa fa-user"></i></span>
+                                    <span class="nav-text">Mi perfil</span>
+                                </a>
+                            </li>
                         </ul>
                     </nav>
                 </div>

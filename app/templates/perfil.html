@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block titulo %}Mi perfil — Sistema de Predicción de Demanda e Inventario{% endblock %}
+{% block encabezado %}Mi perfil{% endblock %}
+{% block titulo_pagina %}Mi perfil{% endblock %}
+{% block subtitulo_pagina %}Tus datos de cuenta y los movimientos que has hecho en el sistema.{% endblock %}
+
+{% block contenido %}
+<div class="row">
+    <div class="col-12 col-lg-4">
+        <div class="card">
+            <div class="card-block perfil-tarjeta">
+                <div class="perfil-avatar"><i class="fa fa-user"></i></div>
+                <h3 class="perfil-nombre">{{ usuario.nombre if usuario else session.get('nombre') }}</h3>
+                <span class="badge {{ 'badge-danger' if session.get('rol') == 'admin' else 'badge-info' }} mb-3">
+                    {{ 'Administrador' if session.get('rol') == 'admin' else 'Empleado' }}
+                </span>
+                <ul class="perfil-datos">
+                    <li><i class="fa fa-at"></i> {{ usuario.username if usuario else session.get('username') }}</li>
+                    {% if usuario and usuario.email %}
+                    <li><i class="fa fa-envelope-o"></i> {{ usuario.email }}</li>
+                    {% endif %}
+                    {% if nombre_empresa %}
+                    <li><i class="fa fa-building-o"></i> {{ nombre_empresa }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title">Tus movimientos</h3>
+                </div>
+                {% if movimientos %}
+                <div class="timeline-actividad">
+                    {% for m in movimientos %}
+                    <div class="timeline-item timeline-item-{{ m.tipo }}">
+                        <div class="timeline-icono">
+                            {% if m.tipo == 'archivo_subido' %}<i class="fa fa-upload"></i>
+                            {% elif m.tipo == 'pedido_confirmado' %}<i class="fa fa-check"></i>
+                            {% elif m.tipo == 'pedido_deshecho' %}<i class="fa fa-undo"></i>
+                            {% elif m.tipo == 'usuario_creado' %}<i class="fa fa-user-plus"></i>
+                            {% else %}<i class="fa fa-circle"></i>{% endif %}
+                        </div>
+                        <div class="timeline-contenido">
+                            <p class="timeline-descripcion">{{ m.descripcion }}</p>
+                            <span class="timeline-fecha">{{ m.fecha }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">Todavía no tienes movimientos registrados.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

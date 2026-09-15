@@ -145,6 +145,28 @@ def calcular_tabla_reorden(
         else:
             valor_inventario_actual = np.nan
 
+        # Costo de ruptura de inventario (stockout): el margen que se
+        # dejaría de ganar si el producto se agota y no hay stock
+        # disponible durante el tiempo que tarda en llegar el próximo
+        # pedido (lead time). Es la tercera categoría de costo de
+        # inventario junto con el costo de pedido (EOQ, arriba) y el
+        # costo de mantenimiento (porcentaje_costo_mantenimiento, usado
+        # en el EOQ) — ver el desglose "Costos del inventario" en la
+        # pantalla de Presupuesto. Requiere el precio de venta (columna
+        # opcional Precio/Price): sin eso no hay margen que calcular.
+        precio_producto = fila_params.get("precio", np.nan)
+        demanda_diaria = demanda_promedio / DIAS_POR_MES
+        lead_time_dias = lead_time_meses * DIAS_POR_MES
+        if (
+            not pd.isna(precio_producto) and not pd.isna(costo_unitario_producto)
+            and precio_producto > costo_unitario_producto
+        ):
+            margen_unitario = precio_producto - costo_unitario_producto
+            costo_ruptura_estimado = margen_unitario * demanda_diaria * lead_time_dias
+        else:
+            margen_unitario = np.nan
+            costo_ruptura_estimado = np.nan
+
         segmento = producto_comportamiento_idx.loc[producto]
 
         # Fecha estimada en la que el inventario va a llegar al punto de
@@ -193,6 +215,8 @@ def calcular_tabla_reorden(
             "costo_unitario": round(costo_unitario_producto, 2) if not pd.isna(costo_unitario_producto) else np.nan,
             "costo_estimado_pedido": round(costo_estimado_pedido, 2) if not pd.isna(costo_estimado_pedido) else np.nan,
             "valor_inventario_actual": round(valor_inventario_actual, 2) if not pd.isna(valor_inventario_actual) else np.nan,
+            "margen_unitario": round(margen_unitario, 2) if not pd.isna(margen_unitario) else np.nan,
+            "costo_ruptura_estimado": round(costo_ruptura_estimado, 2) if not pd.isna(costo_ruptura_estimado) else np.nan,
             "fecha_estimada_pedido": fecha_estimada_pedido.strftime("%Y-%m-%d") if fecha_estimada_pedido is not None else None,
             "dias_para_pedido": round(dias_para_pedido) if not pd.isna(dias_para_pedido) else None,
             "ordenar": "SI" if ya_hay_que_pedir else "NO"
@@ -212,7 +236,7 @@ def calcular_tabla_reorden(
         "nombre_producto", "categoria", "proveedor_principal", "proveedor_alterno",
         "fecha_estimada_pedido", "inventario_actual", "eoq", "limite_presupuesto_unidades",
         "cantidad_sugerida_pedido", "costo_unitario", "costo_estimado_pedido",
-        "valor_inventario_actual", "dias_para_pedido",
+        "valor_inventario_actual", "dias_para_pedido", "margen_unitario", "costo_ruptura_estimado",
     ])
 
     return reorder_df, working_capital_budget, presupuesto_por_producto

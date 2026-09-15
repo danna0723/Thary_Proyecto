@@ -9,10 +9,11 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 from app.services.sistema_prediccion import ejecutar_sistema
-from app.services.auth import admin_required, login_required
+from app.services.auth import admin_required, login_required, buscar_usuario
 from app.services.pedidos import cargar_pedidos, registrar_pedido, quitar_pedido
 from app.services.perfil_empresa import cargar_nombre_empresa, guardar_nombre_empresa
 from app.services.resultados import guardar_resultado, cargar_ultima_corrida
+from app.services.actividad import registrar as registrar_actividad, listar_propia, listar_empresa
 
 main_bp = Blueprint("main", __name__)
 
@@ -168,6 +169,11 @@ def procesar():
 
     guardar_ultimo_resultado(resultado, session["empresa_id"])
 
+    registrar_actividad(
+        session["empresa_id"], session.get("username"), session.get("nombre") or session.get("username"),
+        "archivo_subido", f"Subió el archivo \"{nombre_seguro}\" y generó un nuevo pronóstico.",
+    )
+
     # Después de procesar, se manda directo al dashboard (la pantalla
     # que vería un usuario real). La pantalla técnica queda disponible
     # aparte, en /desarrollo, para quien la necesite.
@@ -281,6 +287,35 @@ def presupuesto():
     return render_template("presupuesto.html", r=resultado)
 
 
+@main_bp.route("/calendario", methods=["GET"])
+@login_required
+def calendario():
+    """Calendario de reposición: en qué fecha hay que pedir cada
+    producto y cuánto, en un solo vistazo — la misma información de
+    "Próximos pedidos" y las alertas urgentes de /presupuesto, pero
+    organizada por fecha en vez de por tabla."""
+    resultado = cargar_ultimo_resultado(session["empresa_id"])
+    if resultado is None:
+        return pantalla_sin_datos()
+
+    eventos = [
+        {
+            "fecha": fila["fecha_estimada_pedido"],
+            "producto_id": fila["producto_id"],
+            "nombre_producto": fila.get("nombre_producto"),
+            "categoria": fila.get("categoria"),
+            "cantidad": fila.get("cantidad_sugerida_pedido"),
+            "costo": fila.get("costo_estimado_pedido"),
+            "proveedor": fila.get("proveedor_principal"),
+            "urgente": fila["ordenar"] == "SI",
+        }
+        for fila in resultado["reorder"]
+        if fila.get("fecha_estimada_pedido")
+    ]
+
+    return render_template("calendario.html", r=resultado, eventos=eventos)
+
+
 @main_bp.route("/inventario", methods=["GET"])
 @login_required
 def inventario():
@@ -363,6 +398,13 @@ def pedido_confirmar():
         )
         confirmados_ahora += 1
 
+    if confirmados_ahora:
+        lista = ", ".join(seleccionados[:5]) + ("…" if len(seleccionados) > 5 else "")
+        registrar_actividad(
+            session["empresa_id"], session.get("username"), usuario,
+            "pedido_confirmado", f"Confirmó {confirmados_ahora} pedido(s): {lista}",
+        )
+
     flash(f"Se confirmaron {confirmados_ahora} pedido(s).")
     return redirect(url_for("main.pedido"))
 
@@ -371,6 +413,10 @@ def pedido_confirmar():
 @login_required
 def pedido_deshacer(producto_id):
     quitar_pedido(session["empresa_id"], producto_id)
+    registrar_actividad(
+        session["empresa_id"], session.get("username"), session.get("nombre") or session.get("username"),
+        "pedido_deshecho", f"Deshizo la confirmación del pedido de {producto_id}.",
+    )
     flash("Se deshizo la confirmación del pedido.")
     return redirect(url_for("main.pedido"))
 
@@ -392,3 +438,23 @@ def imagenes(nombre_archivo):
         carpeta_resultados(session["empresa_id"]),
         nombre_archivo
     )
+
+
+@main_bp.route("/perfil")
+@login_required
+def perfil():
+    """Perfil personal: datos de la cuenta y los movimientos que este
+    usuario hizo (confirmar/deshacer pedidos, o si es admin, sus
+    subidas de archivo y las cuentas que creó)."""
+    movimientos = listar_propia(session["empresa_id"], session["username"])
+    usuario = buscar_usuario(session["username"])
+    return render_template("perfil.html", movimientos=movimientos, usuario=usuario)
+
+
+@main_bp.route("/actividad")
+@admin_required
+def actividad_empresa():
+    """Solo para el admin: los movimientos de todos los usuarios de su
+    empresa, no solo los propios — una bitácora/auditoría completa."""
+    movimientos = listar_empresa(session["empresa_id"])
+    return render_template("actividad.html", movimientos=movimientos)

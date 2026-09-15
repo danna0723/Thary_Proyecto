@@ -552,6 +552,7 @@ label, .form-label, .form-text { color: var(--md-text-muted); }
     color: var(--md-text) !important;
 }
 .text-primary { color: var(--md-primary) !important; }
+.text-danger { color: #ff6b9d !important; }
 .text-muted { color: var(--md-text-muted) !important; }
 strong, b { color: var(--md-text); }
 
@@ -897,6 +898,279 @@ strong, b { color: var(--md-text); }
 .filtro-meses-controles select {
     min-width: 140px;
 }
+
+/* ---------- Perfil ---------- */
+.perfil-tarjeta {
+    text-align: center;
+}
+.perfil-avatar {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
+    color: #fff;
+    font-size: 1.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 16px rgba(233, 30, 99, .35);
+}
+.perfil-nombre {
+    margin: 0 0 8px;
+    font-size: 1.1rem;
+}
+.perfil-datos {
+    list-style: none;
+    padding: 0;
+    margin: 14px 0 0;
+    text-align: left;
+    border-top: 1px solid var(--md-border);
+    padding-top: 14px;
+}
+.perfil-datos li {
+    color: var(--md-text-muted);
+    font-size: .85rem;
+    padding: 6px 0;
+}
+.perfil-datos li i {
+    width: 20px;
+    color: var(--md-cyan);
+}
+
+/* ---------- Timeline de actividad (Mi perfil) ---------- */
+.timeline-actividad {
+    position: relative;
+    padding-left: 36px;
+}
+.timeline-actividad::before {
+    content: "";
+    position: absolute;
+    left: 15px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: var(--md-border);
+}
+.timeline-item {
+    position: relative;
+    padding-bottom: 22px;
+}
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+.timeline-icono {
+    position: absolute;
+    left: -36px;
+    top: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--md-bg-alt);
+    border: 2px solid var(--md-primary);
+    color: var(--md-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+}
+.timeline-item-pedido_deshecho .timeline-icono {
+    border-color: #ff5825;
+    color: #ff5825;
+}
+.timeline-item-usuario_creado .timeline-icono {
+    border-color: var(--md-cyan);
+    color: var(--md-cyan);
+}
+.timeline-item-pedido_confirmado .timeline-icono {
+    border-color: var(--md-success);
+    color: var(--md-success);
+}
+.timeline-descripcion {
+    color: var(--md-text);
+    margin: 0 0 2px;
+    font-size: .88rem;
+}
+.timeline-fecha {
+    color: var(--md-text-muted);
+    font-size: .75rem;
+}
+
+/* ---------- Calendario de pedidos ---------- */
+.calendario-encabezado {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.calendario-titulo {
+    margin: 0;
+    font-size: 1rem;
+    text-transform: capitalize;
+}
+.calendario-nav {
+    background: transparent;
+    border: 1px solid var(--md-border);
+    border-radius: .5rem;
+    color: var(--md-text-muted);
+    width: 32px;
+    height: 32px;
+}
+.calendario-nav:hover {
+    color: var(--md-text);
+    border-color: var(--md-primary);
+}
+.calendario-leyenda {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: .75rem;
+    color: var(--md-text-muted);
+    margin-bottom: 14px;
+}
+.calendario-punto {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+.calendario-punto-urgente { background-color: var(--md-primary); }
+.calendario-punto-proximo { background-color: var(--md-cyan); }
+
+.calendario-dias-semana {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--md-text-muted);
+    margin-bottom: 6px;
+}
+.calendario-grilla {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+.calendario-celda {
+    position: relative;
+    min-height: 56px;
+    border-radius: .5rem;
+    background-color: var(--md-bg-alt);
+    border: 1px solid transparent;
+    padding: 6px;
+}
+.calendario-celda-vacia {
+    background-color: transparent;
+}
+.calendario-numero {
+    font-size: .78rem;
+    color: var(--md-text-muted);
+}
+.calendario-celda-hoy .calendario-numero {
+    color: var(--md-text);
+    font-weight: 700;
+}
+.calendario-celda-hoy {
+    border-color: var(--md-border);
+}
+.calendario-celda-con-eventos {
+    cursor: pointer;
+}
+.calendario-celda-con-eventos:hover {
+    border-color: var(--md-cyan);
+}
+.calendario-celda-seleccionada {
+    border-color: var(--md-primary) !important;
+    background-color: rgba(233, 30, 99, .08);
+}
+.calendario-badge {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    font-size: .68rem;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.calendario-badge-urgente { background-color: var(--md-primary); }
+.calendario-badge-proximo { background-color: var(--md-cyan); }
+
+.calendario-detalle-lista {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.calendario-detalle-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--md-border);
+}
+.calendario-detalle-item:last-child {
+    border-bottom: none;
+}
+.calendario-detalle-item-urgente {
+    border-left: 3px solid var(--md-primary);
+    padding-left: 8px;
+}
+.calendario-detalle-producto {
+    font-size: .85rem;
+    color: var(--md-text);
+}
+.calendario-detalle-cantidad {
+    font-weight: 700;
+    color: var(--md-primary);
+    white-space: nowrap;
+    font-size: .85rem;
+}
+.calendario-detalle-total {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--md-border);
+    color: var(--md-text-muted);
+    font-size: .85rem;
+}
+
+/* ---------- Costos del inventario (presupuesto) ---------- */
+.costos-inventario-grid {
+    margin-top: 6px;
+}
+.costo-tipo-card {
+    height: 100%;
+    padding: 16px;
+    border-radius: .65rem;
+    background-color: var(--md-bg-alt);
+    border: 1px solid var(--md-border);
+}
+.costo-tipo-card h4 {
+    font-size: .88rem;
+    font-weight: 700;
+    color: var(--md-text);
+    margin: 10px 0 6px;
+}
+.costo-tipo-icono {
+    width: 38px;
+    height: 38px;
+    border-radius: .6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1rem;
+}
+.costo-tipo-pedido { background: linear-gradient(60deg, var(--md-cyan), #0e8fac); }
+.costo-tipo-almacenamiento { background: linear-gradient(60deg, #8965e0, #5e3fb8); }
+.costo-tipo-ruptura { background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark)); }
 
 /* Íconos junto a "Obligatorias"/"Opcionales" en el panel de columnas */
 .columnas-grupo-titulo i {
