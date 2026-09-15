@@ -861,6 +861,43 @@ strong, b { color: var(--md-text); }
     margin: 0;
 }
 
+/* ---------- Filtro de meses (dashboard) ---------- */
+.filtro-meses-block {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+.filtro-meses-titulo {
+    color: var(--md-text);
+    font-weight: 700;
+    font-size: .9rem;
+    white-space: nowrap;
+}
+.filtro-meses-titulo i {
+    color: var(--md-cyan);
+    margin-right: 6px;
+}
+.filtro-meses-controles {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.filtro-meses-controles .form-group {
+    margin-bottom: 0;
+}
+.filtro-meses-controles label {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 2px;
+}
+.filtro-meses-controles select {
+    min-width: 140px;
+}
+
 /* Íconos junto a "Obligatorias"/"Opcionales" en el panel de columnas */
 .columnas-grupo-titulo i {
     margin-right: 4px;

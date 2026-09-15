@@ -210,10 +210,29 @@ def reporte_demanda():
     """Descarga en CSV la misma tabla que se ve en el dashboard (demanda
     pronosticada por producto y mes) — disponible tanto para admin como
     para empleado, a diferencia de /descargar (que es solo para el
-    admin y sirve los archivos técnicos del panel de desarrollo)."""
+    admin y sirve los archivos técnicos del panel de desarrollo).
+
+    Acepta ?desde=N&hasta=M (1-based, inclusive, sobre la lista de
+    meses pronosticados) para descargar solo un rango de meses — el
+    mismo filtro visual del dashboard arma este link. Sin esos
+    parámetros, se descarga el horizonte completo como siempre."""
     resultado = cargar_ultimo_resultado(session["empresa_id"])
     if resultado is None:
         return pantalla_sin_datos()
+
+    meses_legibles = resultado["meses_pronosticados_legibles"]
+    total_meses_disponibles = len(meses_legibles)
+
+    desde = request.args.get("desde", type=int) or 1
+    hasta = request.args.get("hasta", type=int) or total_meses_disponibles
+    desde, hasta = sorted((desde, hasta))
+    desde = max(1, min(desde, total_meses_disponibles))
+    hasta = max(1, min(hasta, total_meses_disponibles))
+    # Índices 0-based para recortar las listas.
+    i_desde, i_hasta = desde - 1, hasta - 1
+
+    meses_filtrados = meses_legibles[i_desde:i_hasta + 1]
+    total_meses = len(meses_filtrados)
 
     buffer = io.StringIO()
     escritor = csv.writer(buffer)
@@ -223,17 +242,17 @@ def reporte_demanda():
         escritor.writerow(["Empresa", nombre_empresa])
         escritor.writerow([])
 
-    total_meses = len(resultado["meses_pronosticados_legibles"])
     escritor.writerow(
-        ["Producto", "Nombre", "Categoría", *resultado["meses_pronosticados_legibles"], f"Total {total_meses} mes(es)"]
+        ["Producto", "Nombre", "Categoría", *meses_filtrados, f"Total {total_meses} mes(es)"]
     )
     for fila in resultado["pronostico_pivot"]:
+        valores_filtrados = fila["valores"][i_desde:i_hasta + 1]
         escritor.writerow([
             fila["producto_id"],
             fila.get("nombre_producto") or "",
             fila.get("categoria") or "",
-            *fila["valores"],
-            fila["total"],
+            *valores_filtrados,
+            round(sum(valores_filtrados)),
         ])
 
     # "utf-8-sig" agrega el BOM que Excel necesita para mostrar bien los
