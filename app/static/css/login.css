@@ -34,7 +34,7 @@
     height: 420px;
     bottom: -140px;
     right: -100px;
-    background: radial-gradient(circle, var(--md-cyan), transparent 70%);
+    background: radial-gradient(circle, var(--md-primary), transparent 70%);
 }
 
 .login-wrap {

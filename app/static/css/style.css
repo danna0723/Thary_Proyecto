@@ -1,29 +1,60 @@
 /* ============================================================
    Tema propio inspirado en Material Dashboard PRO (Creative Tim),
-   variante oscura con acento magenta — a partir de una captura de
-   referencia que pasó el usuario. No es su código ni sus assets: es
-   un reemplazo de estilos hecho a mano sobre la plantilla base
-   (ModularAdmin) para lograr un look parecido. Solo aplica a las
-   pantallas del sistema (las que extienden base.html) — login/registro
-   ya usan la estética de Material Kit Pro y no se tocaron.
+   variante oscura con acento principal verde azulado (#4d9c96) — a
+   partir de una captura de referencia que pasó el usuario. El rojo
+   (#f93f3f) NO es un color de interfaz de uso general: se reserva
+   solo para resaltar texto puntual (ver --md-acento-texto). No es su
+   código ni sus assets: es un reemplazo de estilos hecho a mano sobre
+   la plantilla base (ModularAdmin) para lograr un look parecido. Solo
+   aplica a las pantallas del sistema (las que extienden base.html) —
+   login/registro ya usan la estética de Material Kit Pro y no se
+   tocaron.
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
 
 :root {
-    --md-bg: #040404;
-    --md-bg-alt: #000000;
+    --md-bg: #1e1e1e;
+    --md-bg-alt: #080808 ;
     --md-card-bg: #080808;
     --md-card-border: rgba(46, 12, 12, 0.06);
-    --md-primary: #e91e63;
-    --md-primary-dark: #c2185b;
-    --md-cyan: #17c1e8;
+    --md-primary: #4d9c96;
+    --md-primary-dark: #11816f;
+    /* Rojo — NO es un color de interfaz de uso general (botones, íconos,
+       bordes): se reserva solo para resaltar texto puntual, como los
+       valores destacados en tablas (ver .text-primary y
+       .calendario-detalle-cantidad más abajo). */
+    --md-acento-texto: #f93f3f;
     --md-success: #2dce89;
     --md-text: #f5f5f5;
     --md-text-muted: #a8a8a8;
     --md-border: rgba(255, 255, 255, .08);
     --md-card-radius: 1rem;
     --md-card-shadow: 0 8px 26px -6px rgba(0, 0, 0, .5);
+    /* Fondo del aviso de "Procesando tu archivo..." (ver .upload-overlay)
+       — no puede ser var(--md-card-bg) a secas porque necesita algo de
+       transparencia para que se note que tapa el formulario de abajo. */
+    --md-overlay-bg: rgba(4, 4, 4, .92);
+}
+
+/* Modo claro: se activa agregando data-theme="light" al <html> (ver el
+   botón en el header y el script en base.html, que lo guarda en
+   localStorage). Los acentos (verde azulado, rojo del texto, verde de
+   éxito) quedan iguales en los dos temas — es la paleta de fondo/texto
+   la que cambia. Como el resto del CSS ya usa estas variables en vez
+   de colores fijos,
+   redefinirlas acá alcanza para que toda la pantalla cambie de tema
+   sin tener que tocar cada regla. */
+[data-theme="light"] {
+    --md-bg: #eef0f4;
+    --md-bg-alt: #e3e6ec;
+    --md-card-bg: #ffffff;
+    --md-card-border: rgba(0, 0, 0, .06);
+    --md-text: #1c1c28;
+    --md-text-muted: #6b7280;
+    --md-border: rgba(0, 0, 0, .1);
+    --md-card-shadow: 0 8px 26px -10px rgba(0, 0, 0, .18);
+    --md-overlay-bg: rgba(255, 255, 255, .92);
 }
 
 /* ---------- Barra de desplazamiento ---------- */
@@ -59,7 +90,7 @@ a:hover { color: var(--md-primary-dark); }
 .sidebar {
     background-color: var(--md-bg-alt) !important;
     border-right: 1px solid var(--md-border);
-    transition: width .3s ease;
+    transition: width .3s ease, background-color .2s ease;
 }
 .sidebar .sidebar-container::-webkit-scrollbar-track {
     background-color: var(--md-bg-alt) !important;
@@ -84,11 +115,22 @@ a:hover { color: var(--md-primary-dark); }
     border-radius: 8px;
     object-fit: cover;
 }
+/* Cada logo existe dos veces en el HTML (versión blanca y versión
+   oscura/navy, ver base.html) — acá se esconde la que NO corresponde
+   al tema actual. Importante: estas reglas solo ESCONDEN (display:none),
+   nunca fuerzan a mostrar — mostrar/ocultar según el sidebar esté
+   colapsado o no lo sigue decidiendo .brand-logo/.brand-logo-mini más
+   abajo. Si esto forzara display:block, le ganaría (por !important) a
+   la regla que esconde el logo grande cuando el sidebar está
+   colapsado, y se verían los dos íconos superpuestos. */
+html:not([data-theme="light"]) .tema-claro { display: none !important; }
+[data-theme="light"] .tema-oscuro { display: none !important; }
 .sidebar-empresa {
     margin-top: 10px;
     font-size: .72rem;
     font-weight: 600;
     color: var(--md-text-muted);
+    opacity: .85;
     text-transform: uppercase;
     letter-spacing: .04em;
     white-space: nowrap;
@@ -121,7 +163,7 @@ a:hover { color: var(--md-primary-dark); }
     overflow: hidden;
 }
 .sidebar-user-name {
-    color: #fff;
+    color: var(--md-text);
     font-weight: 600;
     font-size: .85rem;
     white-space: nowrap;
@@ -147,6 +189,7 @@ a:hover { color: var(--md-primary-dark); }
 }
 .nav-section-label span {
     color: var(--md-text-muted);
+    opacity: .75;
     font-size: .68rem;
     text-transform: uppercase;
     letter-spacing: .08em;
@@ -157,7 +200,7 @@ a:hover { color: var(--md-primary-dark); }
     align-items: center;
     gap: 12px;
     border-radius: .65rem;
-    color: rgba(255, 255, 255, .65) !important;
+    color: var(--md-text-muted) !important;
     transition: background .15s ease, color .15s ease;
 }
 .nav-icon {
@@ -175,13 +218,13 @@ a:hover { color: var(--md-primary-dark); }
 }
 .sidebar .sidebar-menu li a:hover {
     background-color: var(--md-card-bg) !important;
-    color: #fff !important;
+    color: var(--md-text) !important;
 }
 .sidebar .sidebar-menu > li.active > a,
 .sidebar .sidebar-menu > li.active > a:hover {
     background: var(--md-primary) !important;
     color: #fff !important;
-    box-shadow: 0 4px 12px rgba(233, 30, 99, .4);
+    box-shadow: 0 4px 12px rgba(77, 156, 150, 0.4);
 }
 
 /* ------------------------------------------------------------
@@ -213,21 +256,21 @@ a:hover { color: var(--md-primary-dark); }
 }
 .sidebar .sidebar-menu > li.submenu.menu-abierto > a.submenu-toggle {
     background-color: var(--md-card-bg);
-    color: #fff !important;
+    color: var(--md-text) !important;
 }
 .sidebar .sidebar-menu > li > .sidebar-nav > li a {
     background-color: transparent;
     border-radius: .6rem;
     margin: 2px 0;
-    color: rgba(255, 255, 255, .5);
+    color: var(--md-text-muted);
 }
 .sidebar .sidebar-menu > li > .sidebar-nav > li a:hover {
     background-color: var(--md-card-bg);
-    color: #fff;
+    color: var(--md-text);
 }
 .sidebar .sidebar-menu > li > .sidebar-nav > li.active a {
     color: var(--md-primary) !important;
-    background-color: rgba(233, 30, 99, .12);
+    background-color: rgba(77, 156, 150, .12);
     font-weight: 600;
 }
 
@@ -487,13 +530,13 @@ h1, h2, h3, h4, h5, h6 { color: var(--md-text); }
     background: var(--md-primary) !important;
     border: none !important;
     border-radius: .6rem;
-    box-shadow: 0 4px 12px rgba(233, 30, 99, .35);
+    box-shadow: 0 4px 12px rgba(77, 156, 150, 0.4);
     color: #fff !important;
 }
 .btn.btn-primary:hover,
 .btn.btn-primary:focus {
     background: var(--md-primary-dark) !important;
-    box-shadow: 0 6px 16px rgba(233, 30, 99, .45);
+    box-shadow: 0 6px 16px rgba(77, 156, 150, 0.45);
 }
 .btn-outline-secondary {
     border-radius: .6rem;
@@ -515,7 +558,7 @@ h1, h2, h3, h4, h5, h6 { color: var(--md-text); }
 }
 .form-control:focus, select:focus {
     border-color: var(--md-primary) !important;
-    box-shadow: 0 0 0 .15rem rgba(233, 30, 99, .25) !important;
+    box-shadow: 0 0 0 .15rem rgba(77, 156, 150, .25) !important;
     background-color: var(--md-bg-alt) !important;
     color: var(--md-text) !important;
 }
@@ -541,17 +584,17 @@ label, .form-label, .form-text { color: var(--md-text-muted); }
     color: var(--md-text-muted);
 }
 .table-striped tbody tr:nth-of-type(odd) {
-    background-color: rgba(255, 255, 255, .02);
+    background-color: var(--md-border);
 }
 .table-hover tbody tr:hover {
-    background-color: rgba(233, 30, 99, .08);
+    background-color: rgba(77, 156, 150, .08);
     color: var(--md-text);
 }
 .table-danger, .table-danger > td, .table-danger > th {
-    background-color: rgba(233, 30, 99, .1) !important;
+    background-color: rgba(77, 156, 150, .1) !important;
     color: var(--md-text) !important;
 }
-.text-primary { color: var(--md-primary) !important; }
+.text-primary { color: var(--md-acento-texto) !important; }
 .text-danger { color: #ff6b9d !important; }
 .text-muted { color: var(--md-text-muted) !important; }
 strong, b { color: var(--md-text); }
@@ -565,14 +608,14 @@ strong, b { color: var(--md-text); }
 }
 .badge-info {
     background-color: rgba(23, 193, 232, .15);
-    color: var(--md-cyan);
+    color: var(--md-primary);
 }
 .badge-light {
-    background-color: rgba(255, 255, 255, .08);
+    background-color: var(--md-border);
     color: var(--md-text-muted);
 }
 .badge-danger {
-    background-color: rgba(233, 30, 99, .15);
+    background-color: rgba(77, 156, 150, .15);
     color: #ff6b9d;
 }
 .badge-success {
@@ -609,7 +652,7 @@ strong, b { color: var(--md-text); }
     background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
     color: #fff;
     font-size: 1.1rem;
-    box-shadow: 0 4px 12px rgba(233, 30, 99, .35);
+    box-shadow: 0 4px 12px rgba(77, 156, 150, 0.4);
 }
 .stats .stat {
     display: block;
@@ -662,7 +705,8 @@ strong, b { color: var(--md-text); }
 }
 .dataTables_wrapper .pagination .page-item.disabled .page-link {
     background-color: transparent;
-    color: rgba(255, 255, 255, .25);
+    color: var(--md-text-muted);
+    opacity: .5;
 }
 
 /* ---------- Pantalla "Subir archivo" ---------- */
@@ -694,7 +738,7 @@ strong, b { color: var(--md-text); }
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 10px rgba(233, 30, 99, .35);
+    box-shadow: 0 4px 10px rgba(77, 156, 150, .35);
 }
 .paso-titulo {
     font-size: .95rem;
@@ -721,11 +765,11 @@ strong, b { color: var(--md-text); }
     transition: border-color .2s ease, background-color .2s ease;
 }
 .dropzone:hover {
-    border-color: var(--md-cyan);
+    border-color: var(--md-primary);
 }
 .dropzone-activo {
     border-color: var(--md-primary) !important;
-    background-color: rgba(233, 30, 99, .06) !important;
+    background-color: rgba(77, 156, 150, .06) !important;
 }
 .dropzone-con-archivo {
     border-style: solid;
@@ -744,7 +788,7 @@ strong, b { color: var(--md-text); }
 }
 .dropzone-icono {
     font-size: 2rem;
-    color: var(--md-cyan);
+    color: var(--md-primary);
     margin-bottom: 8px;
     display: block;
 }
@@ -828,7 +872,7 @@ strong, b { color: var(--md-text); }
 .upload-overlay {
     position: absolute;
     inset: 0;
-    background-color: rgba(4, 4, 4, .92);
+    background-color: var(--md-overlay-bg);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -877,7 +921,7 @@ strong, b { color: var(--md-text); }
     white-space: nowrap;
 }
 .filtro-meses-titulo i {
-    color: var(--md-cyan);
+    color: var(--md-primary);
     margin-right: 6px;
 }
 .filtro-meses-controles {
@@ -914,7 +958,7 @@ strong, b { color: var(--md-text); }
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 6px 16px rgba(233, 30, 99, .35);
+    box-shadow: 0 6px 16px rgba(77, 156, 150, .35);
 }
 .perfil-nombre {
     margin: 0 0 8px;
@@ -935,7 +979,7 @@ strong, b { color: var(--md-text); }
 }
 .perfil-datos li i {
     width: 20px;
-    color: var(--md-cyan);
+    color: var(--md-primary);
 }
 
 /* ---------- Timeline de actividad (Mi perfil) ---------- */
@@ -979,8 +1023,8 @@ strong, b { color: var(--md-text); }
     color: #ff5825;
 }
 .timeline-item-usuario_creado .timeline-icono {
-    border-color: var(--md-cyan);
-    color: var(--md-cyan);
+    border-color: var(--md-primary);
+    color: var(--md-primary);
 }
 .timeline-item-pedido_confirmado .timeline-icono {
     border-color: var(--md-success);
@@ -1003,10 +1047,24 @@ strong, b { color: var(--md-text); }
     justify-content: space-between;
     margin-bottom: 10px;
 }
+.calendario-titulo-grupo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 .calendario-titulo {
     margin: 0;
     font-size: 1rem;
     text-transform: capitalize;
+}
+.calendario-select-anio {
+    background-color: var(--md-bg-alt);
+    border: 1px solid var(--md-border);
+    border-radius: .4rem;
+    color: var(--md-text);
+    font-size: .85rem;
+    font-weight: 600;
+    padding: 2px 6px;
 }
 .calendario-nav {
     background: transparent;
@@ -1036,7 +1094,7 @@ strong, b { color: var(--md-text); }
     margin-right: 4px;
 }
 .calendario-punto-urgente { background-color: var(--md-primary); }
-.calendario-punto-proximo { background-color: var(--md-cyan); }
+.calendario-punto-proximo { background-color: var(--md-primary); }
 
 .calendario-dias-semana {
     display: grid;
@@ -1079,11 +1137,11 @@ strong, b { color: var(--md-text); }
     cursor: pointer;
 }
 .calendario-celda-con-eventos:hover {
-    border-color: var(--md-cyan);
+    border-color: var(--md-primary);
 }
 .calendario-celda-seleccionada {
     border-color: var(--md-primary) !important;
-    background-color: rgba(233, 30, 99, .08);
+    background-color: rgba(77, 156, 150, .08);
 }
 .calendario-badge {
     position: absolute;
@@ -1101,7 +1159,7 @@ strong, b { color: var(--md-text); }
     justify-content: center;
 }
 .calendario-badge-urgente { background-color: var(--md-primary); }
-.calendario-badge-proximo { background-color: var(--md-cyan); }
+.calendario-badge-proximo { background-color: var(--md-primary); }
 
 .calendario-detalle-lista {
     list-style: none;
@@ -1129,7 +1187,7 @@ strong, b { color: var(--md-text); }
 }
 .calendario-detalle-cantidad {
     font-weight: 700;
-    color: var(--md-primary);
+    color: var(--md-acento-texto);
     white-space: nowrap;
     font-size: .85rem;
 }
@@ -1168,13 +1226,60 @@ strong, b { color: var(--md-text); }
     color: #fff;
     font-size: 1rem;
 }
-.costo-tipo-pedido { background: linear-gradient(60deg, var(--md-cyan), #0e8fac); }
+.costo-tipo-pedido { background: linear-gradient(60deg, var(--md-primary), #2f6d67); }
 .costo-tipo-almacenamiento { background: linear-gradient(60deg, #8965e0, #5e3fb8); }
 .costo-tipo-ruptura { background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark)); }
+
+/* ---------- Selector de tabla (presupuesto) ---------- */
+.selector-tabla-presupuesto {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.selector-tabla-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    background-color: var(--md-bg-alt);
+    border: 1px solid var(--md-border);
+    border-radius: .65rem;
+    color: var(--md-text-muted);
+    text-align: left;
+    font-size: .85rem;
+    transition: border-color .15s ease, color .15s ease, background-color .15s ease;
+}
+.selector-tabla-btn i {
+    font-size: 1rem;
+    flex: 0 0 auto;
+}
+.selector-tabla-btn span:first-of-type {
+    flex: 1 1 auto;
+}
+.selector-tabla-btn:hover {
+    border-color: var(--md-primary);
+    color: var(--md-text);
+}
+.selector-tabla-btn.activo {
+    border-color: var(--md-primary);
+    background-color: rgba(77, 156, 150, .1);
+    color: var(--md-text);
+    font-weight: 600;
+}
+
+/* ---------- Confirmar pedido inline (tabla de alertas, presupuesto) ---------- */
+.accion-confirmar-pedido {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 120px;
+    margin-bottom: 0;
+}
 
 /* Íconos junto a "Obligatorias"/"Opcionales" en el panel de columnas */
 .columnas-grupo-titulo i {
     margin-right: 4px;
 }
 .columnas-grupo-obligatorias i { color: var(--md-primary); }
-.columnas-grupo-opcionales i { color: var(--md-cyan); }
+.columnas-grupo-opcionales i { color: var(--md-primary); }

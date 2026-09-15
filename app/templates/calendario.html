@@ -36,7 +36,10 @@
             <div class="card-block">
                 <div class="calendario-encabezado">
                     <button type="button" class="calendario-nav" id="cal-anterior" title="Mes anterior"><i class="fa fa-chevron-left"></i></button>
-                    <h3 class="calendario-titulo" id="cal-titulo"></h3>
+                    <div class="calendario-titulo-grupo">
+                        <h3 class="calendario-titulo" id="cal-titulo"></h3>
+                        <select class="calendario-select-anio" id="cal-anio"></select>
+                    </div>
                     <button type="button" class="calendario-nav" id="cal-siguiente" title="Mes siguiente"><i class="fa fa-chevron-right"></i></button>
                 </div>
                 <div class="calendario-leyenda">
@@ -83,9 +86,35 @@ document.addEventListener("DOMContentLoaded", function () {
     var seleccionada = hoyStr;
 
     var titulo = document.getElementById("cal-titulo");
+    var selectorAnio = document.getElementById("cal-anio");
     var grilla = document.getElementById("cal-grilla");
     var detalleTitulo = document.getElementById("detalle-titulo");
     var detalleContenido = document.getElementById("detalle-contenido");
+
+    // Años que se pueden elegir: los que realmente tienen algún pedido
+    // (pueden ser varios si un producto casi no se vende y su fecha
+    // estimada cae años hacia adelante), más el año actual siempre,
+    // aunque esté vacío — así el selector nunca queda más corto que
+    // "hoy". Si con las flechas Mes anterior/siguiente se llega a un
+    // año que no estaba en la lista, agregarAnioSiFalta() lo suma
+    // sobre la marcha (ordenado), para que el selector nunca quede
+    // desincronizado del mes que se está mostrando.
+    var aniosConEventos = {};
+
+    function agregarAnioSiFalta(anio) {
+        if (aniosConEventos[anio]) return;
+        aniosConEventos[anio] = true;
+        var opcion = document.createElement("option");
+        opcion.value = anio;
+        opcion.textContent = anio;
+        var siguiente = Array.prototype.find.call(selectorAnio.options, function (o) { return Number(o.value) > anio; });
+        selectorAnio.insertBefore(opcion, siguiente || null);
+    }
+
+    var anios = {};
+    eventos.forEach(function (ev) { anios[Number(ev.fecha.slice(0, 4))] = true; });
+    anios[hoy.getFullYear()] = true;
+    Object.keys(anios).map(Number).sort(function (a, b) { return a - b; }).forEach(agregarAnioSiFalta);
 
     function formatearFecha(fecha) {
         var m = String(fecha.getMonth() + 1).padStart(2, "0");
@@ -98,7 +127,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderCalendario() {
-        titulo.textContent = MESES[mesActual.getMonth()] + " " + mesActual.getFullYear();
+        titulo.textContent = MESES[mesActual.getMonth()];
+        agregarAnioSiFalta(mesActual.getFullYear());
+        selectorAnio.value = mesActual.getFullYear();
         grilla.innerHTML = "";
 
         var primerDiaSemana = mesActual.getDay();
@@ -180,6 +211,10 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     document.getElementById("cal-siguiente").addEventListener("click", function () {
         mesActual = new Date(mesActual.getFullYear(), mesActual.getMonth() + 1, 1);
+        renderCalendario();
+    });
+    selectorAnio.addEventListener("change", function () {
+        mesActual = new Date(Number(selectorAnio.value), mesActual.getMonth(), 1);
         renderCalendario();
     });
 

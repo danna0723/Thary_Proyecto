@@ -16,7 +16,7 @@
     background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
     color: #fff;
     font-size: 1.3rem;
-    box-shadow: 0 6px 18px rgba(233, 30, 99, .45);
+    box-shadow: 0 6px 18px rgba(77, 156, 150, .45);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -108,7 +108,7 @@
     font-style: italic;
 }
 .asistente-msg-error {
-    background-color: rgba(233, 30, 99, .12);
+    background-color: rgba(77, 156, 150, .12);
     color: #ff6b9d;
 }
 

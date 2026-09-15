@@ -11,10 +11,14 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
 {% set alertas = r.reorder | selectattr("ordenar", "equalto", "SI") | list | sort(attribute="cantidad_sugerida_pedido", reverse=True) %}
 {% set top_costos = alertas | selectattr("costo_estimado_pedido", "ne", none) | list | sort(attribute="costo_estimado_pedido", reverse=True) %}
 {% set top_costos_chart = top_costos[:10] %}
-{% set presupuesto_restante = (r.presupuesto_capital_trabajo - r.costo_total_pedidos_urgentes) if r.presupuesto_capital_trabajo else 0 %}
-{% set presupuesto_restante = presupuesto_restante if presupuesto_restante > 0 else 0 %}
 {% set ruptura_alertas = alertas | selectattr("costo_ruptura_estimado", "ne", none) | list %}
 {% set costo_ruptura_total = ruptura_alertas | sum(attribute="costo_ruptura_estimado") %}
+{% set proximos = r.reorder
+    | selectattr("ordenar", "equalto", "NO")
+    | selectattr("dias_para_pedido", "ne", none)
+    | selectattr("dias_para_pedido", "le", 90)
+    | list
+    | sort(attribute="dias_para_pedido") %}
 
 <div class="row">
     <div class="col-12">
@@ -103,18 +107,30 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
 </div>
 {% endif %}
 
-{% if alertas and r.presupuesto_capital_trabajo and top_costos_chart %}
+{% if alertas or proximos %}
 <div class="row sameheight-container">
     <div class="col-12 col-md-5">
         <div class="card sameheight-item">
             <div class="card-block">
                 <div class="card-title-block">
-                    <h3 class="title">Presupuesto usado vs. disponible</h3>
+                    <h3 class="title">¿Qué tabla quieres ver?</h3>
                 </div>
-                <div class="chart" id="grafica-presupuesto" style="height: 260px;"></div>
+                <div class="selector-tabla-presupuesto">
+                    <button type="button" class="selector-tabla-btn activo" data-panel="panel-alertas">
+                        <i class="fa fa-exclamation-triangle"></i>
+                        <span>Puntos de reposición y alertas</span>
+                        <span class="badge badge-danger">{{ alertas | length }}</span>
+                    </button>
+                    <button type="button" class="selector-tabla-btn" data-panel="panel-proximos">
+                        <i class="fa fa-calendar"></i>
+                        <span>Próximos pedidos (90 días)</span>
+                        <span class="badge badge-info">{{ proximos | length }}</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
+    {% if top_costos_chart %}
     <div class="col-12 col-md-7">
         <div class="card sameheight-item">
             <div class="card-block">
@@ -125,25 +141,27 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endif %}
 
-<div class="title-block">
-    <h2 class="title">Puntos de reposición y alertas</h2>
-    <p class="title-description">
-        Combina el pronóstico de demanda con el inventario actual y el tiempo de entrega de
-        cada proveedor para avisar qué productos hay que pedir ya.
-        {% if r.reorder %}
-        <strong>{{ alertas | length }} de {{ r.reorder | length }}</strong> productos necesitan pedido ahora.
-        {% endif %}
-    </p>
-</div>
+<div id="panel-alertas" class="panel-tabla-presupuesto">
+    <div class="title-block">
+        <h2 class="title">Puntos de reposición y alertas</h2>
+        <p class="title-description">
+            Combina el pronóstico de demanda con el inventario actual y el tiempo de entrega de
+            cada proveedor para avisar qué productos hay que pedir ya.
+            {% if r.reorder %}
+            <strong>{{ alertas | length }} de {{ r.reorder | length }}</strong> productos necesitan pedido ahora.
+            {% endif %}
+        </p>
+    </div>
 
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-block">
-                {% if alertas %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-block">
+                    {% if alertas %}
                 <div class="table-responsive">
                     <table class="table table-hover tabla-buscable">
                         <thead>
@@ -158,10 +176,13 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                                 <th>Cantidad sugerida a pedir</th>
                                 <th>Costo estimado del pedido</th>
                                 <th>Riesgo si no se pide</th>
+                                <th>Acción</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for fila in alertas %}
+                            {% set pid = fila.producto_id | string %}
+                            {% set ya_confirmado = pedidos.get(pid) %}
                             <tr class="table-danger">
                                 <td>
                                     {{ fila.producto_id }}
@@ -199,39 +220,58 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                                     <span class="text-muted" title="Falta la columna Precio en el archivo">—</span>
                                     {% endif %}
                                 </td>
+                                <td>
+                                    {% if ya_confirmado %}
+                                    <span class="badge badge-success"><i class="fa fa-check"></i> Confirmado</span>
+                                    <small class="d-block text-muted">{{ ya_confirmado.usuario }}</small>
+                                    {% else %}
+                                    <form method="post" action="{{ url_for('main.pedido_confirmar') }}" class="accion-confirmar-pedido">
+                                        <input type="hidden" name="confirmar" value="{{ fila.producto_id }}">
+                                        {% if fila.proveedor_principal or fila.proveedor_alterno %}
+                                        <select name="proveedor_{{ fila.producto_id }}" class="form-control form-control-sm">
+                                            {% if fila.proveedor_principal %}
+                                            <option value="{{ fila.proveedor_principal }}">{{ fila.proveedor_principal }}</option>
+                                            {% endif %}
+                                            {% if fila.proveedor_alterno %}
+                                            <option value="{{ fila.proveedor_alterno }}">{{ fila.proveedor_alterno }} (alt.)</option>
+                                            {% endif %}
+                                        </select>
+                                        {% endif %}
+                                        <button type="submit" class="btn btn-primary btn-sm">
+                                            <i class="fa fa-check"></i> Confirmar
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
-                {% else %}
-                <p class="text-muted">Ningún producto necesita reposición por ahora, según el inventario y el pronóstico actuales.</p>
-                {% endif %}
+                    {% else %}
+                    <p class="text-muted">Ningún producto necesita reposición por ahora, según el inventario y el pronóstico actuales.</p>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-{% set proximos = r.reorder
-    | selectattr("ordenar", "equalto", "NO")
-    | selectattr("dias_para_pedido", "ne", none)
-    | selectattr("dias_para_pedido", "le", 90)
-    | list
-    | sort(attribute="dias_para_pedido") %}
-<div class="title-block">
-    <h2 class="title">Próximos pedidos (siguientes 90 días)</h2>
-    <p class="title-description">
-        Fecha estimada en la que cada producto va a llegar a su punto de reorden, calculada
-        a partir del inventario actual y el ritmo de consumo pronosticado — todavía no hay que
-        pedirlos, pero conviene tenerlos en el radar.
-    </p>
-</div>
+<div id="panel-proximos" class="panel-tabla-presupuesto" hidden>
+    <div class="title-block">
+        <h2 class="title">Próximos pedidos (siguientes 90 días)</h2>
+        <p class="title-description">
+            Fecha estimada en la que cada producto va a llegar a su punto de reorden, calculada
+            a partir del inventario actual y el ritmo de consumo pronosticado — todavía no hay que
+            pedirlos, pero conviene tenerlos en el radar.
+        </p>
+    </div>
 
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-block">
-                {% if proximos %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-block">
+                    {% if proximos %}
                 <div class="table-responsive">
                     <table class="table table-striped table-hover tabla-buscable">
                         <thead>
@@ -269,49 +309,59 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                         </tbody>
                     </table>
                 </div>
-                {% else %}
-                <p class="text-muted">Ningún producto va a necesitar reposición en los próximos 90 días, según el ritmo de consumo pronosticado.</p>
-                {% endif %}
+                    {% else %}
+                    <p class="text-muted">Ningún producto va a necesitar reposición en los próximos 90 días, según el ritmo de consumo pronosticado.</p>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<p class="text-muted small">
-    La fecha de pedido es una estimación lineal (asume que se consume al ritmo promedio
-    pronosticado); no anticipa picos puntuales de demanda dentro del mes.
-</p>
+    <p class="text-muted small">
+        La fecha de pedido es una estimación lineal (asume que se consume al ritmo promedio
+        pronosticado); no anticipa picos puntuales de demanda dentro del mes.
+    </p>
+</div>
 
 <p class="text-muted small">
     <a href="{{ url_for('main.desarrollo') }}">Ver el detalle técnico de cómo se calculó este pronóstico &rarr;</a>
 </p>
 
-{% if alertas and r.presupuesto_capital_trabajo and top_costos_chart %}
+{% if top_costos_chart %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    // Gráfico de pastel (Morris.Donut — esta librería no tiene un tipo
+    // "Pie" aparte, el Donut es su versión de gráfico de torta/pastel)
+    // con una porción por cada uno de los productos con mayor costo
+    // estimado de pedido.
     Morris.Donut({
-        element: 'grafica-presupuesto',
-        data: [
-            { label: "Costo de pedidos urgentes", value: {{ r.costo_total_pedidos_urgentes }} },
-            { label: "Presupuesto disponible restante", value: {{ presupuesto_restante }} }
-        ],
-        resize: true,
-        colors: ['#e91e63', '#3a3a52']
-    });
-
-    Morris.Bar({
         element: 'grafica-top-costos',
         data: [
             {% for fila in top_costos_chart %}
-            { producto: {{ (fila.nombre_producto or fila.producto_id) | tojson }}, costo: {{ fila.costo_estimado_pedido }} }{{ "," if not loop.last }}
+            { label: {{ (fila.nombre_producto or fila.producto_id) | tojson }}, value: {{ fila.costo_estimado_pedido }} }{{ "," if not loop.last }}
             {% endfor %}
         ],
-        xkey: 'producto',
-        ykeys: ['costo'],
-        labels: ['Costo estimado ($)'],
-        barColors: ['#e91e63'],
-        hideHover: 'auto',
-        resize: true
+        resize: true,
+        formatter: function (y) { return "$" + Math.round(y).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+    });
+});
+</script>
+{% endif %}
+
+{% if alertas or proximos %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Selector "¿Qué tabla quieres ver?": muestra un panel a la vez
+    // (alertas o próximos pedidos) — las dos tablas ya vienen
+    // renderizadas desde el servidor, esto solo cambia cuál se ve.
+    var botones = document.querySelectorAll(".selector-tabla-btn");
+    var paneles = document.querySelectorAll(".panel-tabla-presupuesto");
+    botones.forEach(function (boton) {
+        boton.addEventListener("click", function () {
+            botones.forEach(function (b) { b.classList.remove("activo"); });
+            boton.classList.add("activo");
+            paneles.forEach(function (panel) { panel.hidden = panel.id !== boton.dataset.panel; });
+        });
     });
 });
 </script>

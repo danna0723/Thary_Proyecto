@@ -4,6 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block titulo %}Sistema de Predicción de Demanda e Inventario{% endblock %}</title>
+    <script>
+        // Aplica el tema guardado ANTES de que se carguen las hojas de
+        // estilo, para que la página no arranque en oscuro (el default)
+        // y "parpadee" a claro un instante después si esa era la
+        // preferencia guardada. Ver el resto de la lógica (el botón,
+        // guardar en localStorage) más abajo, junto a sidebar-mini.
+        (function () {
+            try {
+                if (localStorage.getItem("tema") === "light") {
+                    document.documentElement.setAttribute("data-theme", "light");
+                }
+            } catch (e) { /* localStorage bloqueado (modo privado, etc.) — se queda en oscuro */ }
+        })();
+    </script>
     <script src="https://kit.fontawesome.com/e93ccfb9a4.js" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="{{ static_url('vendor/modular-admin/css/vendor.css') }}">
     <link rel="stylesheet" href="{{ static_url('vendor/modular-admin/css/app.css') }}">
@@ -38,6 +52,9 @@
                         <input type="text" id="buscador-navbar" placeholder="Buscar aquí" autocomplete="off">
                     </div>
                     <div class="header-icon-group">
+                        <button class="header-icon" id="tema-toggle" title="Cambiar a modo claro" type="button">
+                            <i class="fa fa-sun-o"></i>
+                        </button>
                         {% if session.get('nombre') %}
                         <div class="header-icon-wrap">
                             <button class="header-icon" id="perfil-toggle" title="{{ session.get('nombre') }}" type="button">
@@ -70,8 +87,10 @@
                 <div class="sidebar-container">
                     <div class="sidebar-header">
                         <a href="{{ url_for('main.index') if es_admin else url_for('main.dashboard') }}" class="brand">
-                            <img src="{{ static_url('img/logo.png') }}" alt="Thary" class="brand-logo">
-                            <img src="{{ static_url('img/logo-icono.png') }}" alt="Thary" class="brand-logo-mini">
+                            <img src="{{ static_url('img/logo-blanco.png') }}" alt="Thary" class="brand-logo tema-oscuro">
+                            <img src="{{ static_url('img/logo.png') }}" alt="Thary" class="brand-logo tema-claro">
+                            <img src="{{ static_url('img/logo-icono-blanco.png') }}" alt="Thary" class="brand-logo-mini tema-oscuro">
+                            <img src="{{ static_url('img/logo-icono.png') }}" alt="Thary" class="brand-logo-mini tema-claro">
                         </a>
                         {% if nombre_empresa %}
                         <div class="sidebar-empresa nav-text" title="{{ nombre_empresa }}">{{ nombre_empresa }}</div>
@@ -278,6 +297,33 @@
                 toggle.addEventListener("click", function () {
                     app.classList.toggle("sidebar-mini");
                     localStorage.setItem("sidebarMini", app.classList.contains("sidebar-mini") ? "1" : "0");
+                });
+            }
+
+            // Modo claro/oscuro: el atributo data-theme="light" ya se
+            // pudo haber puesto en <html> por el script inline del
+            // <head> (para evitar el parpadeo) — acá solo hace falta
+            // dejar el ícono del botón en el estado correcto al
+            // arrancar, y manejar el clic para alternar + guardar.
+            var temaToggle = document.getElementById("tema-toggle");
+            if (temaToggle) {
+                var temaIcono = temaToggle.querySelector("i");
+                function actualizarIconoTema() {
+                    var esClaro = document.documentElement.getAttribute("data-theme") === "light";
+                    temaIcono.className = esClaro ? "fa fa-moon-o" : "fa fa-sun-o";
+                    temaToggle.title = esClaro ? "Cambiar a modo oscuro" : "Cambiar a modo claro";
+                }
+                actualizarIconoTema();
+                temaToggle.addEventListener("click", function () {
+                    var esClaroAhora = document.documentElement.getAttribute("data-theme") === "light";
+                    if (esClaroAhora) {
+                        document.documentElement.removeAttribute("data-theme");
+                        localStorage.setItem("tema", "dark");
+                    } else {
+                        document.documentElement.setAttribute("data-theme", "light");
+                        localStorage.setItem("tema", "light");
+                    }
+                    actualizarIconoTema();
                 });
             }
 

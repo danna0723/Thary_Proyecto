@@ -284,7 +284,9 @@ def presupuesto():
     if resultado is None:
         return pantalla_sin_datos()
 
-    return render_template("presupuesto.html", r=resultado)
+    pedidos = cargar_pedidos(session["empresa_id"])
+
+    return render_template("presupuesto.html", r=resultado, pedidos=pedidos)
 
 
 @main_bp.route("/calendario", methods=["GET"])
