@@ -663,3 +663,207 @@ strong, b { color: var(--md-text); }
     background-color: transparent;
     color: rgba(255, 255, 255, .25);
 }
+
+/* ---------- Pantalla "Subir archivo" ---------- */
+.upload-card {
+    position: relative;
+    overflow: hidden;
+}
+.paso {
+    margin-bottom: 28px;
+}
+.paso:last-of-type {
+    margin-bottom: 20px;
+}
+.paso-encabezado {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.paso-numero {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
+    color: #fff;
+    font-weight: 700;
+    font-size: .85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(233, 30, 99, .35);
+}
+.paso-titulo {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--md-text);
+    margin: 0 0 2px;
+}
+.paso-ayuda {
+    font-size: .78rem;
+    color: var(--md-text-muted);
+    margin: 0;
+}
+
+/* Zona de arrastrar-y-soltar */
+.dropzone {
+    display: block;
+    position: relative;
+    border: 2px dashed var(--md-border);
+    border-radius: .75rem;
+    background-color: var(--md-bg-alt);
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s ease, background-color .2s ease;
+}
+.dropzone:hover {
+    border-color: var(--md-cyan);
+}
+.dropzone-activo {
+    border-color: var(--md-primary) !important;
+    background-color: rgba(233, 30, 99, .06) !important;
+}
+.dropzone-con-archivo {
+    border-style: solid;
+    border-color: var(--md-success);
+    background-color: rgba(45, 206, 137, .06);
+}
+.dropzone-error-borde {
+    border-color: #ff5825 !important;
+}
+.dropzone input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+}
+.dropzone-icono {
+    font-size: 2rem;
+    color: var(--md-cyan);
+    margin-bottom: 8px;
+    display: block;
+}
+.dropzone-texto {
+    color: var(--md-text);
+    font-weight: 600;
+    margin: 0 0 4px;
+}
+.dropzone-subtexto {
+    color: var(--md-text-muted);
+    font-size: .78rem;
+    margin: 0;
+}
+.dropzone-archivo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+}
+.dropzone-archivo-icono {
+    font-size: 1.8rem;
+    color: var(--md-success);
+    flex: 0 0 auto;
+}
+.dropzone-archivo-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.dropzone-archivo-nombre {
+    color: var(--md-text);
+    font-weight: 600;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dropzone-archivo-tamano {
+    color: var(--md-text-muted);
+    font-size: .78rem;
+    margin: 0;
+}
+.dropzone-quitar {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid var(--md-border);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    color: var(--md-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.dropzone-quitar:hover {
+    color: #fff;
+    border-color: #ff5825;
+    background-color: rgba(255, 88, 37, .15);
+}
+.dropzone-error {
+    color: #ff8a65;
+    font-size: .8rem;
+    margin: 8px 0 0;
+}
+
+.input-group-text {
+    background-color: var(--md-bg-alt);
+    border: 1px solid var(--md-border);
+    color: var(--md-text-muted);
+}
+
+.btn-subir {
+    padding: 12px;
+    font-weight: 600;
+    letter-spacing: .02em;
+}
+.btn-subir:disabled {
+    opacity: .7;
+}
+
+/* Aviso de "procesando" mientras corre el pipeline en el servidor */
+.upload-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(4, 4, 4, .92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    border-radius: var(--md-card-radius);
+    z-index: 5;
+}
+.upload-overlay-spinner {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 3px solid var(--md-border);
+    border-top-color: var(--md-primary);
+    animation: upload-spin .8s linear infinite;
+    margin-bottom: 16px;
+}
+@keyframes upload-spin {
+    to { transform: rotate(360deg); }
+}
+.upload-overlay-texto {
+    color: var(--md-text);
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+.upload-overlay-subtexto {
+    color: var(--md-text-muted);
+    font-size: .82rem;
+    max-width: 320px;
+    margin: 0;
+}
+
+/* Íconos junto a "Obligatorias"/"Opcionales" en el panel de columnas */
+.columnas-grupo-titulo i {
+    margin-right: 4px;
+}
+.columnas-grupo-obligatorias i { color: var(--md-primary); }
+.columnas-grupo-opcionales i { color: var(--md-cyan); }

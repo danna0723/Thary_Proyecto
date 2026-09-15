@@ -8,44 +8,105 @@
 {% block contenido %}
 <div class="row">
     <div class="col-12 col-lg-6">
-        <div class="card">
+        <div class="card upload-card">
             <div class="card-block">
-                <form action="{{ url_for('main.procesar') }}" method="post" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <label for="nombre_empresa">Nombre de la empresa</label>
-                        <input type="text" id="nombre_empresa" name="nombre_empresa" maxlength="120"
-                               value="{{ nombre_empresa or '' }}" class="form-control" placeholder="Ej: Farmacia Central">
-                        <small class="form-text text-muted">
-                            Aparece en el sidebar y en el reporte de demanda descargable. Opcional.
-                        </small>
+                <form action="{{ url_for('main.procesar') }}" method="post" enctype="multipart/form-data" id="form-subir" novalidate>
+
+                    <div class="paso">
+                        <div class="paso-encabezado">
+                            <span class="paso-numero">1</span>
+                            <div>
+                                <h3 class="paso-titulo">Tu archivo de ventas</h3>
+                                <p class="paso-ayuda">Arrastra el CSV aquí o haz clic para buscarlo en tu computador.</p>
+                            </div>
+                        </div>
+
+                        <label for="archivo" class="dropzone" id="dropzone">
+                            <input type="file" id="archivo" name="archivo" accept=".csv" required>
+                            <div class="dropzone-estado" id="dropzone-vacio">
+                                <i class="fa fa-cloud-upload dropzone-icono"></i>
+                                <p class="dropzone-texto">Arrastra tu archivo CSV aquí</p>
+                                <p class="dropzone-subtexto">o haz clic para seleccionarlo — máx. un archivo, formato .csv</p>
+                            </div>
+                            <div class="dropzone-estado dropzone-archivo" id="dropzone-archivo" hidden>
+                                <i class="fa fa-file-text-o dropzone-archivo-icono"></i>
+                                <div class="dropzone-archivo-info">
+                                    <p class="dropzone-archivo-nombre" id="archivo-nombre"></p>
+                                    <p class="dropzone-archivo-tamano" id="archivo-tamano"></p>
+                                </div>
+                                <button type="button" class="dropzone-quitar" id="dropzone-quitar" title="Quitar archivo">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                        </label>
+                        <p class="dropzone-error" id="dropzone-error" hidden>
+                            <i class="fa fa-exclamation-triangle"></i>
+                            El archivo debe tener extensión .csv — selecciona otro archivo.
+                        </p>
                     </div>
-                    <div class="form-group">
-                        <label for="archivo">Selecciona tu archivo CSV</label>
-                        <input type="file" id="archivo" name="archivo" accept=".csv" class="form-control-file" required>
+
+                    <div class="paso">
+                        <div class="paso-encabezado">
+                            <span class="paso-numero">2</span>
+                            <div>
+                                <h3 class="paso-titulo">Datos de la empresa</h3>
+                                <p class="paso-ayuda">Se usa para identificar tu cuenta en el sidebar y en los reportes.</p>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="nombre_empresa">Nombre de la empresa</label>
+                            <input type="text" id="nombre_empresa" name="nombre_empresa" maxlength="120"
+                                   value="{{ nombre_empresa or '' }}" class="form-control" placeholder="Ej: Farmacia Central">
+                            <small class="form-text text-muted">Opcional — puedes completarlo o cambiarlo después.</small>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="presupuesto">Presupuesto disponible para compras de inventario</label>
-                        <input type="number" id="presupuesto" name="presupuesto" min="0" step="any" value="500000" class="form-control">
-                        <small class="form-text text-muted">
-                            Se reparte en partes iguales entre todos los productos activos del
-                            catálogo y limita cuánto se sugiere pedir de cada uno. Si no lo
-                            cambias, se usa $500.000 como valor por defecto.
-                        </small>
+
+                    <div class="paso">
+                        <div class="paso-encabezado">
+                            <span class="paso-numero">3</span>
+                            <div>
+                                <h3 class="paso-titulo">Parámetros del pronóstico</h3>
+                                <p class="paso-ayuda">Ya vienen con valores por defecto — cámbialos solo si lo necesitas.</p>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="presupuesto">Presupuesto disponible para compras de inventario</label>
+                            <div class="input-group">
+                                <div class="input-group-prepend"><span class="input-group-text">$</span></div>
+                                <input type="number" id="presupuesto" name="presupuesto" min="0" step="any" value="500000" class="form-control">
+                            </div>
+                            <small class="form-text text-muted">
+                                Se reparte en partes iguales entre todos los productos activos del catálogo
+                                y limita cuánto se sugiere pedir de cada uno.
+                            </small>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label for="horizonte_meses">Cuántos meses hacia adelante pronosticar</label>
+                            <div class="input-group">
+                                <input type="number" id="horizonte_meses" name="horizonte_meses" min="1" max="24" step="1" value="3" class="form-control">
+                                <div class="input-group-append"><span class="input-group-text">meses</span></div>
+                            </div>
+                            <small class="form-text text-muted">
+                                Por ejemplo, 3 para ver los próximos 3 meses, o 12 para ver todo el año que
+                                viene. Como el pronóstico se calcula mes a mes en cadena, entre más meses
+                                pidas, más se puede acumular el error hacia el final del horizonte.
+                            </small>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="horizonte_meses">Cuántos meses hacia adelante pronosticar</label>
-                        <input type="number" id="horizonte_meses" name="horizonte_meses" min="1" max="24" step="1" value="3" class="form-control">
-                        <small class="form-text text-muted">
-                            Por ejemplo, poné 3 para ver los próximos 3 meses, o 12 para ver todo
-                            el año que viene. Si querés ver un mes puntual (como diciembre),
-                            poné la cantidad de meses que faltan hasta ese mes — va a aparecer
-                            como una de las columnas del resultado. Como el pronóstico se calcula
-                            mes a mes en cadena, entre más meses pidas, más se puede acumular el
-                            error hacia el final del horizonte.
-                        </small>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Procesar</button>
+
+                    <button type="submit" class="btn btn-primary btn-block btn-subir" id="btn-subir">
+                        <i class="fa fa-cogs"></i> Procesar archivo
+                    </button>
                 </form>
+            </div>
+
+            <div class="upload-overlay" id="upload-overlay" hidden>
+                <div class="upload-overlay-spinner"></div>
+                <p class="upload-overlay-texto">Procesando tu archivo…</p>
+                <p class="upload-overlay-subtexto">
+                    Estamos entrenando los modelos y calculando el pronóstico — puede tardar
+                    unos segundos según el tamaño del archivo. No cierres esta pestaña.
+                </p>
             </div>
         </div>
     </div>
@@ -61,7 +122,9 @@
                     archivo tenga un formato exacto, solo que use alguno de estos nombres.
                 </p>
 
-                <p class="text-muted small mb-1"><strong class="text-primary">Obligatorias</strong> — sin estas columnas el archivo no se puede procesar.</p>
+                <p class="text-muted small mb-2 columnas-grupo-titulo columnas-grupo-obligatorias">
+                    <i class="fa fa-check-circle"></i> <strong>Obligatorias</strong> — sin estas columnas el archivo no se puede procesar
+                </p>
                 <div class="table-responsive mb-3">
                     <table class="table table-sm">
                         <tbody>
@@ -81,7 +144,9 @@
                     </table>
                 </div>
 
-                <p class="text-muted small mb-1"><strong>Opcionales</strong> — si faltan, el sistema sigue funcionando, pero sin la función que dependa de ellas.</p>
+                <p class="text-muted small mb-2 columnas-grupo-titulo columnas-grupo-opcionales">
+                    <i class="fa fa-info-circle"></i> <strong>Opcionales</strong> — si faltan, el sistema sigue funcionando, pero sin la función que dependa de ellas
+                </p>
                 <div class="table-responsive">
                     <table class="table table-sm">
                         <tbody>
@@ -124,4 +189,6 @@
         </div>
     </div>
 </div>
+
+<script src="{{ static_url('js/subir_archivo.js') }}"></script>
 {% endblock %}
