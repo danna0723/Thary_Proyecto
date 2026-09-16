@@ -86,7 +86,7 @@
             <aside class="sidebar">
                 <div class="sidebar-container">
                     <div class="sidebar-header">
-                        <a href="{{ url_for('main.index') if es_admin else url_for('main.dashboard') }}" class="brand">
+                        <a href="{{ url_for('main.inicio') }}" class="brand">
                             <img src="{{ static_url('img/logo-blanco.png') }}" alt="Thary" class="brand-logo tema-oscuro">
                             <img src="{{ static_url('img/logo.png') }}" alt="Thary" class="brand-logo tema-claro">
                             <img src="{{ static_url('img/logo-icono-blanco.png') }}" alt="Thary" class="brand-logo-mini tema-oscuro">
@@ -111,6 +111,12 @@
 
                     <nav class="menu">
                         <ul class="sidebar-menu" id="menu-principal">
+                            <li class="{{ 'active' if request.endpoint == 'main.inicio' }}">
+                                <a href="{{ url_for('main.inicio') }}" title="Inicio">
+                                    <span class="nav-icon"><i class="fa fa-th"></i></span>
+                                    <span class="nav-text">Inicio</span>
+                                </a>
+                            </li>
                             {% if es_admin %}
                             <li class="{{ 'active' if request.endpoint == 'main.index' }}">
                                 <a href="{{ url_for('main.index') }}" title="Subir archivo">
@@ -128,9 +134,9 @@
                                 </a>
                                 <ul class="sidebar-nav">
                                     <li class="{{ 'active' if request.endpoint == 'main.dashboard' }}">
-                                        <a href="{{ url_for('main.dashboard') }}" title="Dashboard">
+                                        <a href="{{ url_for('main.dashboard') }}" title="Pronóstico de demanda">
                                             <span class="nav-icon"><i class="fa fa-home"></i></span>
-                                            <span class="nav-text">Dashboard</span>
+                                            <span class="nav-text">Pronóstico de demanda</span>
                                         </a>
                                     </li>
                                     <li class="{{ 'active' if request.endpoint == 'main.inventario' }}">
@@ -248,7 +254,7 @@
         document.addEventListener("DOMContentLoaded", function () {
             if (window.jQuery && jQuery.fn.DataTable) {
                 jQuery(".tabla-buscable").DataTable({
-                    pageLength: 25,
+                    pageLength: 10,
                     lengthMenu: [10, 25, 50, 100],
                     language: {
                         search: "Buscar:",

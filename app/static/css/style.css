@@ -102,6 +102,14 @@ a:hover { color: var(--md-primary-dark); }
 .sidebar-header .brand {
     display: flex;
     align-items: center;
+    justify-content: center;
+    /* La plantilla base (ModularAdmin) le pone padding-left: 25px a
+       .sidebar-header .brand sin nada equivalente a la derecha — eso
+       empujaba el logo hacia la izquierda pese a que .sidebar-header
+       ya tiene su propio padding simétrico (16px 20px). Se anula acá
+       para que quede realmente centrado. */
+    padding-left: 0;
+    width: 100%;
 }
 .sidebar-header .brand-logo {
     width: 100%;
@@ -314,6 +322,16 @@ html:not([data-theme="light"]) .tema-claro { display: none !important; }
     background-color: transparent !important;
     box-shadow: none;
     border-bottom: 1px solid var(--md-border);
+    /* La plantilla base no le pone ningún padding horizontal al header
+       (queda "right: 0" pegado al borde de la ventana) — se agrega acá
+       para que ni la hamburguesa de la izquierda ni los íconos de la
+       derecha queden pegados al borde de la pantalla. */
+    padding: 0 28px;
+}
+@media (max-width: 767.98px) {
+    .header {
+        padding: 0 16px;
+    }
 }
 .collapse-btn {
     color: var(--md-text-muted);
@@ -1023,8 +1041,8 @@ strong, b { color: var(--md-text); }
     color: #ff5825;
 }
 .timeline-item-usuario_creado .timeline-icono {
-    border-color: var(--md-primary);
-    color: var(--md-primary);
+    border-color: #1f8ef1;
+    color: #1f8ef1;
 }
 .timeline-item-pedido_confirmado .timeline-icono {
     border-color: var(--md-success);
@@ -1094,7 +1112,7 @@ strong, b { color: var(--md-text); }
     margin-right: 4px;
 }
 .calendario-punto-urgente { background-color: var(--md-primary); }
-.calendario-punto-proximo { background-color: var(--md-primary); }
+.calendario-punto-proximo { background-color: #1f8ef1; }
 
 .calendario-dias-semana {
     display: grid;
@@ -1159,7 +1177,7 @@ strong, b { color: var(--md-text); }
     justify-content: center;
 }
 .calendario-badge-urgente { background-color: var(--md-primary); }
-.calendario-badge-proximo { background-color: var(--md-primary); }
+.calendario-badge-proximo { background-color: #1f8ef1; }
 
 .calendario-detalle-lista {
     list-style: none;
@@ -1226,7 +1244,7 @@ strong, b { color: var(--md-text); }
     color: #fff;
     font-size: 1rem;
 }
-.costo-tipo-pedido { background: linear-gradient(60deg, var(--md-primary), #2f6d67); }
+.costo-tipo-pedido { background: linear-gradient(60deg, #1f8ef1, #3358f4); }
 .costo-tipo-almacenamiento { background: linear-gradient(60deg, #8965e0, #5e3fb8); }
 .costo-tipo-ruptura { background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark)); }
 
@@ -1283,3 +1301,90 @@ strong, b { color: var(--md-text); }
 }
 .columnas-grupo-obligatorias i { color: var(--md-primary); }
 .columnas-grupo-opcionales i { color: var(--md-primary); }
+
+/* ---------- Inicio (menú de tarjetas) ---------- */
+.inicio-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 32px;
+}
+@media (max-width: 991.98px) {
+    .inicio-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 575.98px) {
+    .inicio-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.inicio-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background-color: var(--md-card-bg);
+    border: 1px solid var(--md-card-border);
+    border-radius: var(--md-card-radius);
+    box-shadow: var(--md-card-shadow);
+    transition: transform .15s ease, border-color .15s ease;
+}
+.inicio-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--md-primary);
+    color: inherit;
+}
+.inicio-card-icono {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    border-radius: .75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.2rem;
+}
+.inicio-icono-dashboard, .inicio-icono-perfil, .inicio-icono-subir {
+    background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark));
+}
+.inicio-icono-inventario, .inicio-icono-tecnico {
+    background: linear-gradient(60deg, #8965e0, #5e3fb8);
+}
+.inicio-icono-presupuesto, .inicio-icono-usuarios {
+    background: linear-gradient(60deg, #1f8ef1, #3358f4);
+}
+.inicio-icono-calendario, .inicio-icono-actividad {
+    background: linear-gradient(60deg, var(--md-primary), #2f6d67);
+}
+.inicio-icono-pedido {
+    background: linear-gradient(60deg, var(--md-success), #1f9e69);
+}
+.inicio-card-texto {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.inicio-card-texto h3 {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--md-text);
+    margin: 0 0 3px;
+}
+.inicio-card-texto p {
+    font-size: .8rem;
+    color: var(--md-text-muted);
+    margin: 0;
+}
+.inicio-card-flecha {
+    flex: 0 0 auto;
+    color: var(--md-text-muted);
+    font-size: .85rem;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity .15s ease, transform .15s ease;
+}
+.inicio-card:hover .inicio-card-flecha {
+    opacity: 1;
+    transform: translateX(0);
+}

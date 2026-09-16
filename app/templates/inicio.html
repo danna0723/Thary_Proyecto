@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block titulo %}Inicio — Sistema de Predicción de Demanda e Inventario{% endblock %}
+{% block encabezado %}Inicio{% endblock %}
+{% block titulo_pagina %}Hola, {{ session.get('nombre') }}{% endblock %}
+{% block subtitulo_pagina %}¿Qué quieres hacer hoy?{% endblock %}
+
+{% block contenido %}
+{% set es_admin = session.get('rol') == 'admin' %}
+
+<div class="title-block">
+    <h2 class="title">Tu día a día</h2>
+</div>
+<div class="inicio-grid">
+    <a href="{{ url_for('main.dashboard') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-dashboard"><i class="fa fa-home"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Pronóstico de demanda</h3>
+            <p>Cuánto se va a vender de cada producto, mes a mes.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+    <a href="{{ url_for('main.inventario') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-inventario"><i class="fa fa-cubes"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Estado del inventario</h3>
+            <p>Stock actual, productos en alerta y valor inmovilizado.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+    <a href="{{ url_for('main.presupuesto') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-presupuesto"><i class="fa fa-money"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Presupuesto y costos</h3>
+            <p>Qué pedir ya, cuánto cuesta y el riesgo de no pedirlo.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+    <a href="{{ url_for('main.calendario') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-calendario"><i class="fa fa-calendar"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Calendario de pedidos</h3>
+            <p>En qué fecha hay que pedir cada producto, y cuánto.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+    <a href="{{ url_for('main.pedido') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-pedido"><i class="fa fa-shopping-cart"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Pedido</h3>
+            <p>Confirmar o deshacer los pedidos ya realizados.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+    <a href="{{ url_for('main.perfil') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-perfil"><i class="fa fa-user"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Mi perfil</h3>
+            <p>Tus datos de cuenta y tu historial de movimientos.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+</div>
+
+{% if es_admin %}
+<div class="title-block">
+    <h2 class="title">Administración</h2>
+</div>
+<div class="inicio-grid">
+    <a href="{{ url_for('main.index') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-subir"><i class="fa fa-upload"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Subir archivo</h3>
+            <p>Procesar un CSV nuevo y generar el pronóstico.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+    <a href="{{ url_for('main.desarrollo') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-tecnico"><i class="fa fa-table"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Panel técnico</h3>
+            <p>Métricas de los modelos y el detalle del pronóstico.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+    <a href="{{ url_for('auth.usuarios_nuevo') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-usuarios"><i class="fa fa-users"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Usuarios</h3>
+            <p>Crear cuentas de empleados para tu empresa.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+    <a href="{{ url_for('main.actividad_empresa') }}" class="inicio-card">
+        <div class="inicio-card-icono inicio-icono-actividad"><i class="fa fa-history"></i></div>
+        <div class="inicio-card-texto">
+            <h3>Actividad</h3>
+            <p>Qué hizo cada usuario de tu empresa, y cuándo.</p>
+        </div>
+        <i class="fa fa-chevron-right inicio-card-flecha"></i>
+    </a>
+</div>
+{% endif %}
+{% endblock %}

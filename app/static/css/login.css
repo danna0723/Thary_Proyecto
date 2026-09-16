@@ -9,7 +9,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
+    /* "hidden" a secas recortaba la tarjeta cuando su contenido era más
+       alto que la pantalla (pasó al agregar el campo de empresa al
+       registro) — con varios campos, en pantallas bajas no entraba
+       completo y no había forma de llegar a lo que quedaba cortado.
+       overflow-y: auto deja que se pueda hacer scroll en ese caso; el
+       -x se mantiene en hidden para que los "blobs" decorativos de
+       abajo no generen una barra horizontal. */
+    overflow-x: hidden;
+    overflow-y: auto;
     position: relative;
     font-family: 'Roboto', 'Open Sans', sans-serif;
 }
@@ -43,6 +51,11 @@
     width: 100%;
     max-width: 380px;
     padding: 24px;
+}
+/* Registro tiene más campos que login, algunos en 2 columnas (ver
+   .login-row) — un poco más ancho para que quepan cómodos. */
+.login-wrap-ancho {
+    max-width: 460px;
 }
 
 .login-card {
@@ -85,6 +98,17 @@
 .login-field {
     text-align: left;
     margin-bottom: 18px;
+}
+/* Agrupa 2 campos lado a lado (ver registro.html) — el formulario de
+   registro tiene más campos que el de login, y así entra en menos
+   alto en vez de una sola columna larga. */
+.login-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 14px;
+}
+.login-row .login-field {
+    min-width: 0;
 }
 .login-field label {
     font-size: .78rem;
@@ -130,5 +154,11 @@
 @media (max-width: 420px) {
     .login-card {
         padding: 28px 22px;
+    }
+    /* En una pantalla angosta, 2 columnas dejan cada campo demasiado
+       chico para escribir cómodo — vuelve a apilarse en 1 sola. */
+    .login-row {
+        grid-template-columns: 1fr;
+        gap: 0;
     }
 }

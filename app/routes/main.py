@@ -11,9 +11,11 @@ from werkzeug.utils import secure_filename
 from app.services.sistema_prediccion import ejecutar_sistema
 from app.services.auth import admin_required, login_required, buscar_usuario
 from app.services.pedidos import cargar_pedidos, registrar_pedido, quitar_pedido
-from app.services.perfil_empresa import cargar_nombre_empresa, guardar_nombre_empresa
+from app.services.perfil_empresa import cargar_nombre_empresa
 from app.services.resultados import guardar_resultado, cargar_ultima_corrida
 from app.services.actividad import registrar as registrar_actividad, listar_propia, listar_empresa
+from app.services.prediccion.reposicion import DIAS_POR_MES
+from app.services.prediccion.pronostico_futuro import HORIZONTE_MESES_DEFAULT
 
 main_bp = Blueprint("main", __name__)
 
@@ -93,6 +95,15 @@ def pantalla_sin_datos():
     return render_template("sin_datos.html")
 
 
+@main_bp.route("/inicio", methods=["GET"])
+@login_required
+def inicio():
+    """Primera pantalla que ve cualquier usuario al entrar — un menú de
+    tarjetas con todas las opciones del sistema, filtradas según el rol
+    (un empleado no ve las tarjetas de administración)."""
+    return render_template("inicio.html")
+
+
 @main_bp.route("/", methods=["GET"])
 @admin_required
 def index():
@@ -117,8 +128,6 @@ def procesar():
     nombre_seguro = secure_filename(archivo.filename)
     ruta_csv = os.path.join(carpeta_uploads(session["empresa_id"]), nombre_seguro)
     archivo.save(ruta_csv)
-
-    guardar_nombre_empresa(session["empresa_id"], request.form.get("nombre_empresa"))
 
     # Presupuesto opcional: si el usuario lo deja vacío o pone algo
     # inválido, ejecutar_sistema cae a su valor por defecto en vez de
@@ -300,6 +309,17 @@ def calendario():
     if resultado is None:
         return pantalla_sin_datos()
 
+    # La "fecha estimada de pedido" no viene del pronóstico (que solo
+    # llega hasta horizonte_meses) — es una extrapolación en línea recta
+    # de inventario_actual / consumo diario promedio, así que para un
+    # producto con mucho stock y poca venta puede dar una fecha muy
+    # lejana, sin relación real con lo que el sistema pronosticó. Se
+    # limita acá el calendario al mismo horizonte configurado al subir
+    # el archivo, para no mostrar fechas más allá de lo que en verdad
+    # se calculó con confianza.
+    horizonte_meses = resultado.get("horizonte_meses") or HORIZONTE_MESES_DEFAULT
+    limite_dias = horizonte_meses * DIAS_POR_MES
+
     eventos = [
         {
             "fecha": fila["fecha_estimada_pedido"],
@@ -312,7 +332,7 @@ def calendario():
             "urgente": fila["ordenar"] == "SI",
         }
         for fila in resultado["reorder"]
-        if fila.get("fecha_estimada_pedido")
+        if fila.get("fecha_estimada_pedido") and (fila.get("dias_para_pedido") or 0) <= limite_dias
     ]
 
     return render_template("calendario.html", r=resultado, eventos=eventos)

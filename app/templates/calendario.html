@@ -26,7 +26,7 @@
 {% if urgentes %}
 <div class="alert alert-info">
     <i class="fa fa-exclamation-circle"></i>
-    Hoy hay <strong>{{ urgentes | length }}</strong> producto(s) que ya necesitan pedido — están marcados en rojo en el calendario.
+    Hoy hay <strong>{{ urgentes | length }}</strong> producto(s) que ya necesitan pedido — están marcados en el calendario.
 </div>
 {% endif %}
 
@@ -67,6 +67,13 @@
         </div>
     </div>
 </div>
+
+<p class="text-muted small">
+    Las fechas "estimado a futuro" son una proyección en línea recta (inventario actual
+    dividido entre el consumo diario promedio), acotada al horizonte de {{ r.horizonte_meses }}
+    mes(es) que se pronosticó al subir el archivo — no se muestran fechas más allá de eso,
+    porque dejan de tener respaldo del pronóstico.
+</p>
 {% endif %}
 
 <script>

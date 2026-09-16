@@ -16,10 +16,10 @@
   <div class="login-blob login-blob-1"></div>
   <div class="login-blob login-blob-2"></div>
 
-  <div class="login-wrap">
+  <div class="login-wrap login-wrap-ancho">
     <div class="login-card">
       <div class="login-brand">
-        <img src="{{ static_url('img/logo-icono.png') }}" alt="Thary">
+        <img src="{{ static_url('img/logo-icono-blanco.png') }}" alt="Thary">
       </div>
       <h4 class="login-title">Crear cuenta</h4>
       <p class="login-subtitle">Completa tus datos para registrarte</p>
@@ -33,25 +33,36 @@
       {% endwith %}
 
       <form method="post" action="{{ url_for('auth.registro') }}">
-        <div class="form-group login-field">
-          <label for="nombre">Nombre</label>
-          <div class="login-input-icon">
-            <i class="fa fa-id-card"></i>
-            <input type="text" id="nombre" name="nombre" class="form-control" required autofocus>
+        <div class="login-row">
+          <div class="form-group login-field">
+            <label for="nombre">Nombre</label>
+            <div class="login-input-icon">
+              <i class="fa fa-id-card"></i>
+              <input type="text" id="nombre" name="nombre" class="form-control" required autofocus>
+            </div>
+          </div>
+          <div class="form-group login-field">
+            <label for="nombre_empresa">Nombre de la empresa</label>
+            <div class="login-input-icon">
+              <i class="fa fa-building"></i>
+              <input type="text" id="nombre_empresa" name="nombre_empresa" class="form-control" maxlength="120" required>
+            </div>
           </div>
         </div>
-        <div class="form-group login-field">
-          <label for="username">Usuario</label>
-          <div class="login-input-icon">
-            <i class="fa fa-user"></i>
-            <input type="text" id="username" name="username" class="form-control" required>
+        <div class="login-row">
+          <div class="form-group login-field">
+            <label for="username">Usuario</label>
+            <div class="login-input-icon">
+              <i class="fa fa-user"></i>
+              <input type="text" id="username" name="username" class="form-control" required>
+            </div>
           </div>
-        </div>
-        <div class="form-group login-field">
-          <label for="email">Email</label>
-          <div class="login-input-icon">
-            <i class="fa fa-envelope"></i>
-            <input type="email" id="email" name="email" class="form-control" required>
+          <div class="form-group login-field">
+            <label for="email">Email</label>
+            <div class="login-input-icon">
+              <i class="fa fa-envelope"></i>
+              <input type="email" id="email" name="email" class="form-control" required>
+            </div>
           </div>
         </div>
         <div class="form-group login-field">

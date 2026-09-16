@@ -7,6 +7,7 @@ from app.services.auth import (
     verificar_credenciales,
 )
 from app.services.actividad import registrar as registrar_actividad
+from app.services.perfil_empresa import guardar_nombre_empresa
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -27,11 +28,10 @@ def login():
         session["rol"] = usuario.get("rol", "empleado")
         session["empresa_id"] = usuario["empresa_id"]
 
-        # El admin arranca en "Subir archivo" (su tarea principal); un
-        # empleado no tiene acceso a esa pantalla, así que arranca en
-        # el dashboard.
-        destino = "main.index" if session["rol"] == "admin" else "main.dashboard"
-        return redirect(url_for(destino))
+        # Tanto admin como empleado arrancan en el menú de inicio (las
+        # tarjetas con todas las opciones) — de ahí cada quien elige a
+        # dónde ir, según lo que tenga habilitado su rol.
+        return redirect(url_for("main.inicio"))
 
     return render_template("login.html")
 
@@ -47,21 +47,28 @@ def registro():
     """
     if request.method == "POST":
         nombre = request.form.get("nombre", "")
+        nombre_empresa = request.form.get("nombre_empresa", "").strip()
         username = request.form.get("username", "")
         email = request.form.get("email", "")
         password = request.form.get("password", "")
+
+        if not nombre_empresa:
+            flash("Ingresa el nombre de la empresa.")
+            return redirect(url_for("auth.registro"))
 
         usuario, error = crear_usuario(nombre, username, email, password, rol="admin")
         if error:
             flash(error)
             return redirect(url_for("auth.registro"))
 
+        guardar_nombre_empresa(usuario["empresa_id"], nombre_empresa)
+
         session["username"] = usuario["username"]
         session["nombre"] = usuario["nombre"]
         session["rol"] = usuario["rol"]
         session["empresa_id"] = usuario["empresa_id"]
         flash(f"Cuenta de administrador creada. ¡Bienvenido/a, {usuario['nombre']}!")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("main.inicio"))
 
     return render_template("registro.html")
 
