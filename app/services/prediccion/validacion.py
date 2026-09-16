@@ -2,11 +2,11 @@ import numpy as np
 import pandas as pd
 
 from app.services.prediccion.modelos import (
-    COLUMNA_PREDICCION_POR_METODO,
     elegir_campeon_por_producto,
     entrenar_xgboost,
     evaluar_modelo,
     prediccion_baseline_movil,
+    seleccionar_prediccion_final,
 )
 from app.services.prediccion.regresion_lineal import entrenar_regresion_lineal
 
@@ -108,9 +108,7 @@ def validacion_cruzada_temporal(df_model, feature_cols):
         tabla_fold["prediccion_xgboost"] = pred_xgb
         campeon_fold = elegir_campeon_por_producto(tabla_fold)
         tabla_fold["metodo_usado"] = tabla_fold["producto_id"].map(campeon_fold)
-        tabla_fold["prediccion_final"] = tabla_fold.apply(
-            lambda fila: fila[COLUMNA_PREDICCION_POR_METODO[fila["metodo_usado"]]], axis=1
-        )
+        tabla_fold["prediccion_final"] = seleccionar_prediccion_final(tabla_fold)
         metricas_fold["Sistema final"] = evaluar_modelo(
             tabla_fold["demanda"].values, tabla_fold["prediccion_final"].values, "Sistema final"
         )
