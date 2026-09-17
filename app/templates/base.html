@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block titulo %}Sistema de Predicción de Demanda e Inventario{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ static_url('img/logo-icono.png') }}">
     <script>
         // Aplica el tema guardado ANTES de que se carguen las hojas de
         // estilo, para que la página no arranque en oscuro (el default)
@@ -326,14 +327,12 @@
                 actualizarIconoTema();
                 temaToggle.addEventListener("click", function () {
                     var esClaroAhora = document.documentElement.getAttribute("data-theme") === "light";
-                    if (esClaroAhora) {
-                        document.documentElement.removeAttribute("data-theme");
-                        localStorage.setItem("tema", "dark");
-                    } else {
-                        document.documentElement.setAttribute("data-theme", "light");
-                        localStorage.setItem("tema", "light");
-                    }
-                    actualizarIconoTema();
+                    localStorage.setItem("tema", esClaroAhora ? "dark" : "light");
+                    // Recarga la página en vez de solo cambiar el atributo:
+                    // los gráficos Morris (donut de ABC, de top costos) fijan
+                    // su color de texto al dibujarse, una sola vez — no
+                    // reaccionan si el tema cambia después sin recargar.
+                    location.reload();
                 });
             }
 

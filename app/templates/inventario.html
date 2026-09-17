@@ -201,7 +201,11 @@ document.addEventListener("DOMContentLoaded", function () {
             { label: "C (menor peso)", value: {{ abc_c }} }
         ],
         resize: true,
-        colors: ['#4d9c96', '#2f6d67', '#3a3a52']
+        colors: ['#4d9c96', '#2f6d67', '#3a3a52'],
+        // Por defecto Morris pinta el texto del centro en negro fijo,
+        // invisible con el fondo oscuro (que es el tema por defecto de
+        // Thary). En modo claro (data-theme="light") se deja negro.
+        labelColor: document.documentElement.getAttribute("data-theme") === "light" ? "#000000" : "#ffffff"
     });
 
     {% if top_valor_chart %}

@@ -342,7 +342,8 @@ document.addEventListener("DOMContentLoaded", function () {
             {% endfor %}
         ],
         resize: true,
-        formatter: function (y) { return "$" + Math.round(y).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+        formatter: function (y) { return "$" + Math.round(y).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); },
+        labelColor: document.documentElement.getAttribute("data-theme") === "light" ? "#000000" : "#ffffff"
     });
 });
 </script>
