@@ -23,7 +23,8 @@
     <link rel="stylesheet" href="{{ static_url('vendor/modular-admin/css/app.css') }}">
     <link rel="stylesheet" href="{{ static_url('vendor/datatables/css/dataTables.bootstrap4.min.css') }}">
     <link rel="stylesheet" href="{{ static_url('css/style.css') }}">
-    <link rel="stylesheet" href="{{ static_url('css/asistente.css') }}">
+    {# Asistente desactivado temporalmente (en evaluación si se quita definitivamente) #}
+    {# <link rel="stylesheet" href="{{ static_url('css/asistente.css') }}"> #}
 </head>
 <body>
     {% set analisis_endpoints = ['main.dashboard', 'main.inventario', 'main.presupuesto', 'main.calendario', 'main.pedido', 'main.pedido_confirmar', 'main.pedido_deshacer'] %}
@@ -73,12 +74,13 @@
                         </a>
                         {% endif %}
                         <div class="header-icon-wrap">
-                            <span class="header-icon" title="Productos que necesitan pedido">
+                            <a href="{{ url_for('main.inventario') }}#alerta-pedido" class="header-icon"
+                               title="{% if r is defined and r.productos_en_alerta %}Hay {{ r.productos_en_alerta }} producto{{ 's' if r.productos_en_alerta != 1 else '' }} que necesita{{ 'n' if r.productos_en_alerta != 1 else '' }} pedido{% else %}No hay productos que necesiten pedido por ahora{% endif %}">
                                 <i class="fa fa-bell"></i>
                                 {% if r is defined and r.productos_en_alerta %}
                                 <span class="header-badge">{{ r.productos_en_alerta }}</span>
                                 {% endif %}
-                            </span>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -218,6 +220,7 @@
         </div>
     </div>
 
+    {# Asistente desactivado temporalmente (en evaluación si se quita definitivamente)
     <div class="asistente-widget" id="asistente-widget">
         <button type="button" class="asistente-btn" id="asistente-toggle" title="Preguntarle al asistente">
             <i class="fa fa-comments"></i>
@@ -241,6 +244,7 @@
             </form>
         </div>
     </div>
+    #}
 
     <script src="{{ static_url('vendor/modular-admin/js/vendor.js') }}"></script>
     <script src="{{ static_url('vendor/modular-admin/js/app.js') }}"></script>
@@ -368,6 +372,6 @@
             }
         });
     </script>
-    <script src="{{ static_url('js/asistente.js') }}"></script>
+    {# <script src="{{ static_url('js/asistente.js') }}"></script> #}
 </body>
 </html>

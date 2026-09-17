@@ -41,6 +41,67 @@
                 <div class="alert alert-info mb-0">
                     Sistema final (ML + baseline combinados) — MAPE: {{ r.mape_final }}% · WAPE: {{ r.wape_final }}%
                 </div>
+                <p class="text-muted small mt-3 mb-0">
+                    <strong>¿Con qué métrica se elige qué modelo usar?</strong> La tabla de arriba compara
+                    los tres modelos de forma <em>global</em> (contra todo el catálogo a la vez), con las
+                    cinco métricas estándar: MAE, RMSE, R², MAPE y WAPE. Pero el sistema no usa un único
+                    modelo para todo el catálogo — para <em>cada producto</em> por separado se mide el MAE
+                    de backtest de los tres métodos y gana el que menos se equivocó en ESE producto
+                    puntual (columna "Método campeón" en la tabla de predicciones, más abajo). El MAE se
+                    eligió para esa decisión por producto porque está en las mismas unidades que la
+                    demanda (fácil de interpretar) y no se indefine cuando hay meses con demanda cero,
+                    algo común en catálogos de farmacia — a diferencia del MAPE, que sí se indefine ahí.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title">Comparación de modelos por métrica (gráficas)</h3>
+                </div>
+                <p class="text-muted small">
+                    Mismos datos de la tabla de arriba, en barras — el modelo con la barra más baja gana
+                    en esa métrica (en las cuatro, menor es mejor).
+                </p>
+                <div class="row">
+                    <div class="col-6 col-md-3">
+                        <img class="img-fluid" src="{{ url_for('main.imagenes', nombre_archivo='comparacion_MAE.png') }}" alt="Comparación MAE">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <img class="img-fluid" src="{{ url_for('main.imagenes', nombre_archivo='comparacion_RMSE.png') }}" alt="Comparación RMSE">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <img class="img-fluid" src="{{ url_for('main.imagenes', nombre_archivo='comparacion_MAPE_porcentaje.png') }}" alt="Comparación MAPE">
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <img class="img-fluid" src="{{ url_for('main.imagenes', nombre_archivo='comparacion_WAPE_porcentaje.png') }}" alt="Comparación WAPE">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title">Dispersión entre modelos (juicio de expertos)</h3>
+                </div>
+                <p class="text-muted small">
+                    Cada punto es un producto-mes del período de backtest, comparando lo que predijeron
+                    dos modelos para ese mismo caso. Cuánto más pegados a la línea roja (acuerdo
+                    perfecto), más cerca coinciden esos dos modelos — lo ideal es que los puntos se
+                    amontonen cerca de la línea. Una nube muy dispersa, lejos de la línea, significa que
+                    los modelos discrepan bastante para esos productos.
+                </p>
+                <img class="img-fluid" src="{{ url_for('main.imagenes', nombre_archivo='dispersion_modelos.png') }}" alt="Dispersión entre modelos">
             </div>
         </div>
     </div>

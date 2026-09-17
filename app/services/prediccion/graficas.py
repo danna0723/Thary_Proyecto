@@ -56,3 +56,37 @@ def graficar_comparacion_metricas(resultados, carpeta_resultados):
         plt.close()
         graficas_metricas[metrica] = ruta_grafica
     return graficas_metricas
+
+
+# EXTENSIÓN PROPIA — para el capítulo de juicio de expertos: qué tan de
+# acuerdo están los tres métodos ENTRE SÍ (no contra la demanda real,
+# que es lo que miden las métricas de arriba, sino unos contra otros).
+# Cada punto es un producto-mes del período de backtest; cuánto más
+# pegado a la línea roja (acuerdo perfecto), más cerca coinciden esos
+# dos modelos en ese caso. Nubes de puntos muy separadas de la línea
+# indican que los modelos discrepan bastante para ese producto — señal
+# de que conviene mirar con más cuidado cuál se usó (columna "Método
+# campeón" de la tabla de predicciones, elegido por MAE más bajo).
+def graficar_dispersion_modelos(resultados_prediccion, carpeta_resultados):
+    ruta = os.path.join(carpeta_resultados, "dispersion_modelos.png")
+    pares = [
+        ("prediccion_xgboost", "prediccion_regresion_lineal", "XGBoost", "Regresión Lineal"),
+        ("prediccion_xgboost", "prediccion_media_movil", "XGBoost", "Media Móvil"),
+        ("prediccion_regresion_lineal", "prediccion_media_movil", "Regresión Lineal", "Media Móvil"),
+    ]
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    for ax, (col_x, col_y, nombre_x, nombre_y) in zip(axes, pares):
+        x = resultados_prediccion[col_x]
+        y = resultados_prediccion[col_y]
+        ax.scatter(x, y, alpha=0.4, s=18)
+        limite = max(float(x.max()), float(y.max()), 1.0)
+        ax.plot([0, limite], [0, limite], "r--", linewidth=1, label="Acuerdo perfecto (y = x)")
+        ax.set_xlabel(f"Predicción {nombre_x}")
+        ax.set_ylabel(f"Predicción {nombre_y}")
+        ax.set_title(f"{nombre_x} vs. {nombre_y}")
+        ax.legend(fontsize=8)
+    plt.suptitle("Dispersión entre modelos — más cerca de la línea roja = más de acuerdo")
+    plt.tight_layout()
+    plt.savefig(ruta, bbox_inches="tight")
+    plt.close()
+    return ruta

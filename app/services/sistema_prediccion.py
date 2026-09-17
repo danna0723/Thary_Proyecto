@@ -25,6 +25,7 @@ from app.services.prediccion.graficas import (
     graficar_segmentacion,
     graficar_importancia_features,
     graficar_comparacion_metricas,
+    graficar_dispersion_modelos,
 )
 from app.services.prediccion.exportacion import guardar_resultados
 
@@ -166,6 +167,7 @@ def ejecutar_sistema(
 
     # 8. Gráficas y exportación de artefactos (graficas.py / exportacion.py)
     graficas_metricas = graficar_comparacion_metricas(resultados, carpeta_resultados)
+    ruta_dispersion_modelos = graficar_dispersion_modelos(resultados_prediccion, carpeta_resultados)
     rutas = guardar_resultados(
         carpeta_resultados, model, feature_cols, resultados_prediccion,
         resultados, reorder_df, producto_comportamiento, pronostico_futuro_df,
@@ -174,6 +176,7 @@ def ejecutar_sistema(
     rutas["importancia"] = ruta_importancia
     rutas["segmentacion_grafica"] = ruta_segmentacion_grafica
     rutas["graficas"] = graficas_metricas
+    rutas["dispersion_modelos"] = ruta_dispersion_modelos
 
     return {
         "metricas": resultados.to_dict(orient="records"),

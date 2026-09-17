@@ -57,15 +57,16 @@ def create_app():
     # Asistente de IA (Ollama corriendo en la misma máquina, sin mandar
     # nada a un servicio externo). Configurable por variable de entorno
     # por si el modelo o el puerto cambian en otra instalación.
-    app.config["OLLAMA_URL"] = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
-    app.config["OLLAMA_MODEL"] = os.environ.get("OLLAMA_MODEL", "llama3.2")
+    # DESACTIVADO temporalmente (en evaluación si se quita definitivamente).
+    # app.config["OLLAMA_URL"] = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
+    # app.config["OLLAMA_MODEL"] = os.environ.get("OLLAMA_MODEL", "llama3.2")
 
     from app.routes.main import main_bp
     from app.routes.auth import auth_bp
-    from app.routes.asistente import asistente_bp
+    # from app.routes.asistente import asistente_bp
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
-    app.register_blueprint(asistente_bp)
+    # app.register_blueprint(asistente_bp)
 
     @app.context_processor
     def inyectar_nombre_empresa():
