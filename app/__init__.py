@@ -7,6 +7,15 @@ def create_app():
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "cambia-esta-clave-por-una-propia"
 
+    # Límite de tamaño de subida (protección básica contra denegación de
+    # servicio por archivos enormes): el CSV real de referencia pesa ~1 MB,
+    # así que 10 MB da margen generoso para catálogos más grandes sin dejar
+    # el límite abierto del todo.
+    app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+
+    from app.extensions import limiter
+    limiter.init_app(app)
+
     def static_url(filename):
         """
         Como url_for('static', ...), pero agrega "?v=<fecha de

@@ -1,5 +1,6 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
+from app.extensions import limiter
 from app.services.auth import (
     admin_required,
     crear_usuario,
@@ -12,7 +13,12 @@ from app.services.perfil_empresa import guardar_nombre_empresa
 auth_bp = Blueprint("auth", __name__)
 
 
+# Sin login_required (son las puertas de entrada públicas), así que acá
+# es donde más importa limitar intentos: 10 por minuto por IP alcanza
+# para que alguien se equivoque de contraseña varias veces sin frenarlo,
+# pero corta una fuerza bruta o un spam de registros.
 @auth_bp.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def login():
     if request.method == "POST":
         identificador = request.form.get("identificador", "").strip()
@@ -37,6 +43,7 @@ def login():
 
 
 @auth_bp.route("/registro", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def registro():
     """
     Registro público: cualquiera puede crear una cuenta acá, y siempre

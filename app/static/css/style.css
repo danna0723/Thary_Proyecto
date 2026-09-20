@@ -1319,7 +1319,7 @@ strong, b { color: var(--md-text); }
         grid-template-columns: 1fr;
     }
 }
-.inicio-card {
+a.inicio-card {
     display: flex;
     align-items: center;
     gap: 16px;
@@ -1329,6 +1329,10 @@ strong, b { color: var(--md-text); }
     border-radius: var(--md-card-radius);
     box-shadow: var(--md-card-shadow);
     transition: transform .15s ease, border-color .15s ease;
+    text-decoration: none;
+}
+a.inicio-card:hover, a.inicio-card:focus {
+    text-decoration: none;
 }
 .inicio-card:hover {
     transform: translateY(-3px);
