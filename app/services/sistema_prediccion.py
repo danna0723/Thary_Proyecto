@@ -12,6 +12,7 @@ from app.services.prediccion.modelos import (
     prediccion_baseline_movil,
     benchmarking_modelos,
     construir_tabla_predicciones,
+    tamano_test_backtest,
 )
 from app.services.prediccion.pronostico_futuro import (
     generar_pronostico_futuro,
@@ -83,7 +84,13 @@ def ejecutar_sistema(
     # aleatorio), igual que el corte por semana en ambos notebooks de
     # referencia — necesario en series de tiempo para no entrenar con
     # datos "del futuro" respecto al período de prueba.
-    meses_test = meses_ordenados[-3:]
+    #
+    # EXTENSIÓN PROPIA: el tamaño del test ya no es siempre 3 — con
+    # archivos largos (ver tamano_test_backtest en modelos.py) se usa un
+    # test más grande, para que la prueba de Diebold-Mariano de
+    # elegir_campeon_por_producto tenga más poder estadístico.
+    tamano_test = tamano_test_backtest(len(meses_ordenados))
+    meses_test = meses_ordenados[-tamano_test:]
     train_df = df_model[~df_model["fecha"].isin(meses_test)].copy()
     test_df = df_model[df_model["fecha"].isin(meses_test)].copy()
 

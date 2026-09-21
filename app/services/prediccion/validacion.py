@@ -7,13 +7,10 @@ from app.services.prediccion.modelos import (
     evaluar_modelo,
     prediccion_baseline_movil,
     seleccionar_prediccion_final,
+    tamano_test_backtest,
 )
 from app.services.prediccion.regresion_lineal import entrenar_regresion_lineal
 
-# Cuántos meses de test tiene cada fold — el mismo tamaño que usa el
-# split único de producción (sistema_prediccion.py), para que el fold
-# más reciente sea directamente comparable con esos números.
-TEST_SIZE_MESES = 3
 # Mínimo de meses de entrenamiento para que un fold sea válido. Con muy
 # poca historia, un modelo entrenado con menos que esto no dice nada.
 MIN_TRAIN_MESES = 3
@@ -32,8 +29,10 @@ def _armar_folds(meses_ordenados):
     entrena con meses anteriores a su propio test.
 
     El fold más reciente (el último de la lista devuelta) usa
-    exactamente los últimos TEST_SIZE_MESES meses como test — el mismo
-    holdout que ya reporta la tabla comparativa de producción. Los
+    exactamente los últimos N meses como test, con N calculado por
+    tamano_test_backtest (modelos.py) — el mismo criterio y el mismo
+    tamaño que usa el split único de producción (sistema_prediccion.py),
+    para que ese fold sea directamente comparable con esos números. Los
     folds anteriores retroceden de a un mes en el tiempo, para
     confirmar que ese resultado no depende de que ese período haya sido
     particularmente fácil o difícil de pronosticar.
@@ -42,10 +41,11 @@ def _armar_folds(meses_ordenados):
     más viejo al más nuevo.
     """
     n = len(meses_ordenados)
+    tamano_test = tamano_test_backtest(n)
     folds = []
     fin_test = n
     while len(folds) < MAX_FOLDS:
-        inicio_test = fin_test - TEST_SIZE_MESES
+        inicio_test = fin_test - tamano_test
         if inicio_test < MIN_TRAIN_MESES:
             break
         folds.append((meses_ordenados[:inicio_test], meses_ordenados[inicio_test:fin_test]))

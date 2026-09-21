@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import xgboost as xgb
+from scipy import stats
 
 from sklearn.metrics import (
     mean_absolute_error,
@@ -8,6 +9,56 @@ from sklearn.metrics import (
     mean_absolute_percentage_error,
     r2_score
 )
+
+# Umbral de significancia estándar (Diebold & Mariano, 1995) para la
+# prueba usada en elegir_campeon_por_producto.
+NIVEL_SIGNIFICANCIA_DM = 0.05
+
+# EXTENSIÓN PROPIA — tamaño de la ventana de backtest (meses de "test"),
+# usada tanto por el split único de producción (sistema_prediccion.py)
+# como por la validación cruzada temporal (validacion.py). Con un test
+# fijo de 3 meses, la prueba de Diebold-Mariano de arriba siempre queda
+# con solo 2 grados de libertad, sin importar cuánta historia tenga el
+# archivo — con archivos largos conviene un test más grande, para darle
+# más poder estadístico a esa prueba (más meses = comparación más
+# confiable), sin sacrificar tanto entrenamiento como sacrificaría un
+# archivo corto con el mismo test grande.
+#
+# El corte de 18 meses de archivo (no 18 "usables" — ver
+# tamano_test_backtest) es una heurística práctica definida para este
+# proyecto, no un valor tomado de una fuente bibliográfica externa (a
+# diferencia de NIVEL_SIGNIFICANCIA_DM o los umbrales de CV² de
+# Syntetos & Boylan, 2005).
+MESES_ARCHIVO_UMBRAL_TEST_GRANDE = 18
+TEST_SIZE_MESES_DEFAULT = 3
+TEST_SIZE_MESES_GRANDE = 6
+
+# Meses que siempre se pierden por no tener suficiente historial previo
+# para calcular lag_1/lag_2/lag_3 (ver features.py) — necesario para
+# traducir "meses usables" (después de ese descarte) a "meses del
+# archivo original" (lo que el usuario subió).
+MESES_PERDIDOS_POR_REZAGOS = 3
+
+
+def tamano_test_backtest(n_meses_usables):
+    """
+    Cuántos meses usar como período de prueba (backtest), dado cuántos
+    meses quedan disponibles después de perder los primeros
+    MESES_PERDIDOS_POR_REZAGOS por rezagos (n_meses_usables =
+    len(meses_ordenados), tanto en sistema_prediccion.py como en
+    validacion.py).
+
+    Con archivos largos (18 meses del archivo original o más) usa un
+    test de TEST_SIZE_MESES_GRANDE en vez de TEST_SIZE_MESES_DEFAULT,
+    para que la prueba de Diebold-Mariano en elegir_campeon_por_producto
+    tenga más grados de libertad y más poder estadístico. Con archivos
+    cortos se mantiene el test chico, para no dejar muy poca historia
+    para entrenar.
+    """
+    n_meses_archivo_original = n_meses_usables + MESES_PERDIDOS_POR_REZAGOS
+    if n_meses_archivo_original >= MESES_ARCHIVO_UMBRAL_TEST_GRANDE:
+        return TEST_SIZE_MESES_GRANDE
+    return TEST_SIZE_MESES_DEFAULT
 
 
 def entrenar_xgboost(X_train, y_train_log, X_test):
@@ -112,27 +163,93 @@ def seleccionar_prediccion_final(tabla):
 # producto — reemplaza la heurística anterior basada en categoría
 # ABC/variabilidad (que solo elegía entre XGBoost y Media Móvil) por
 # una selección empírica de a tres, respaldada en los datos.
+#
+# El backtest tiene muy pocos meses (3 en la corrida principal, hasta 5
+# si el archivo trae más historial) — con tan pocos datos, que un
+# método tenga el MAE más bajo no significa que sea realmente mejor:
+# puede ser azar. Por eso, antes de declarar ganador al método de menor
+# MAE, se compara contra el segundo mejor con la prueba de
+# Diebold-Mariano (Diebold, F. X., & Mariano, R. S. (1995). "Comparing
+# predictive accuracy." Journal of Business & Economic Statistics,
+# 13(3), 253-263), con la corrección para muestras chicas de Harvey,
+# Leybourne y Newbold (1997) — sin esta corrección, la prueba clásica
+# asume muestras grandes y no es válida con solo 3-5 meses. Si la
+# diferencia de error no es estadísticamente significativa (p >=
+# NIVEL_SIGNIFICANCIA_DM), se prefiere "Media móvil" en vez del que
+# ganó por una diferencia que podría ser puro ruido.
 def elegir_campeon_por_producto(resultados_prediccion):
     """
     Devuelve una Series indexada por producto_id con el nombre del
-    método ("Media móvil"/"Regresión Lineal"/"XGBoost") que tuvo menor
-    MAE para ese producto en los meses de backtest.
+    método ("Media móvil"/"Regresión Lineal"/"XGBoost") elegido para ese
+    producto: el de menor MAE en los meses de backtest, siempre que esa
+    diferencia contra el segundo mejor sea estadísticamente significativa
+    (prueba de Diebold-Mariano con corrección de Harvey-Leybourne-Newbold,
+    ver comentario arriba); si no lo es, se usa "Media móvil" por ser el
+    método más simple y robusto.
 
-    Antes esto llamaba a mean_absolute_error() de scikit-learn una vez
-    por cada (producto, método) vía groupby().apply() — con 856
-    productos y 4 corridas (la principal + 3 de validación cruzada) son
-    miles de llamadas, y esa función paga bastante costo de validación
-    interna en cada una. El MAE es solo el promedio del error absoluto,
-    así que acá se calcula una sola vez para TODAS las filas
-    (vectorizado) y recién después se agrupa por producto — mismo
-    resultado, medido ~15x más rápido en un catálogo de 500 productos.
+    El cálculo del MAE por producto sigue vectorizado (ver comentario
+    original: antes esto usaba groupby().apply(), ~15x más lento en un
+    catálogo de 500 productos) — la comparación estadística se arma con
+    la misma lógica: primero se identifica el mejor y segundo mejor
+    método por producto (np.argsort sobre la tabla de MAE), y recién
+    después se calcula la prueba, también vectorizada sobre todos los
+    productos a la vez.
     """
     errores_por_metodo = pd.DataFrame({
         metodo: (resultados_prediccion["demanda"] - resultados_prediccion[columna]).abs()
         for metodo, columna in COLUMNA_PREDICCION_POR_METODO.items()
     })
-    errores_por_producto = errores_por_metodo.groupby(resultados_prediccion["producto_id"]).mean()
-    return errores_por_producto.idxmin(axis=1)
+    productos = resultados_prediccion["producto_id"]
+    errores_por_producto = errores_por_metodo.groupby(productos).mean()
+
+    metodos = errores_por_producto.columns.to_numpy()
+    orden = np.argsort(errores_por_producto.to_numpy(), axis=1)
+    mejor_metodo = pd.Series(metodos[orden[:, 0]], index=errores_por_producto.index)
+    segundo_metodo = pd.Series(metodos[orden[:, 1]], index=errores_por_producto.index)
+
+    # Error del método mejor y del segundo mejor, mes a mes (una fila
+    # por producto-mes), para poder comparar la diferencia a lo largo
+    # del período de backtest — no solo su promedio.
+    mejor_por_fila = productos.map(mejor_metodo)
+    segundo_por_fila = productos.map(segundo_metodo)
+    error_mejor = np.select(
+        [mejor_por_fila == metodo for metodo in errores_por_metodo.columns],
+        [errores_por_metodo[metodo] for metodo in errores_por_metodo.columns],
+    )
+    error_segundo = np.select(
+        [segundo_por_fila == metodo for metodo in errores_por_metodo.columns],
+        [errores_por_metodo[metodo] for metodo in errores_por_metodo.columns],
+    )
+    diferencia = pd.Series(error_mejor - error_segundo, index=resultados_prediccion.index)
+
+    stats_diferencia = diferencia.groupby(productos).agg(d_media="mean", d_std="std", n="count")
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        error_estandar = stats_diferencia["d_std"] / np.sqrt(stats_diferencia["n"])
+        dm = stats_diferencia["d_media"] / error_estandar
+        # Corrección de Harvey, Leybourne y Newbold (1997) para muestras
+        # chicas, con h=1 (backtest de un paso): DM* = DM * sqrt((n-1)/n),
+        # comparado contra t de Student con n-1 grados de libertad en vez
+        # de la normal estándar que usa la prueba clásica.
+        correccion_hln = np.sqrt((stats_diferencia["n"] - 1) / stats_diferencia["n"])
+        dm_ajustado = dm * correccion_hln
+        grados_libertad = (stats_diferencia["n"] - 1).clip(lower=1)
+        p_valor = pd.Series(
+            2 * (1 - stats.t.cdf(dm_ajustado.abs(), df=grados_libertad)),
+            index=stats_diferencia.index,
+        )
+
+    # Sin al menos 2 meses no hay forma de medir varianza de la
+    # diferencia; y si los dos métodos se equivocaron exactamente igual
+    # mes a mes (d_std == 0), no hay evidencia de que uno sea mejor —
+    # ambos casos se tratan como "no significativo".
+    suficientes_datos = stats_diferencia["n"] >= 2
+    sin_varianza = stats_diferencia["d_std"].fillna(0) == 0
+    significativo = suficientes_datos & (p_valor < NIVEL_SIGNIFICANCIA_DM) & ~sin_varianza
+
+    campeon = mejor_metodo.copy()
+    campeon[~significativo] = "Media móvil"
+    return campeon
 
 
 def construir_tabla_predicciones(test_df, pred_baseline_3, pred_lr, pred_xgb):
