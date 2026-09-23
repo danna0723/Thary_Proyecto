@@ -162,8 +162,13 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
             <div class="card">
                 <div class="card-block">
                     {% if alertas %}
+                <div class="toggle-decimales" data-target="tabla-alertas">
+                    <span class="toggle-decimales-etiqueta">Cantidades:</span>
+                    <button type="button" class="toggle-decimales-btn activo" data-modo="decimales">Decimales</button>
+                    <button type="button" class="toggle-decimales-btn" data-modo="enteros">Enteros</button>
+                </div>
                 <div class="table-responsive">
-                    <table class="table table-hover tabla-buscable">
+                    <table class="table table-hover tabla-buscable" id="tabla-alertas">
                         <thead>
                             <tr>
                                 <th>Producto</th>
@@ -207,11 +212,21 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ fila.inventario_actual if fila.inventario_actual is not none else "—" }}</td>
-                                <td>{{ fila.stock_seguridad }}</td>
-                                <td>{{ fila.punto_reorden }}</td>
+                                <td>
+                                    {% if fila.inventario_actual is not none %}
+                                    <span class="valor-num" data-valor="{{ fila.inventario_actual }}">{{ fila.inventario_actual }}</span>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td><span class="valor-num" data-valor="{{ fila.stock_seguridad }}">{{ fila.stock_seguridad }}</span></td>
+                                <td><span class="valor-num" data-valor="{{ fila.punto_reorden }}">{{ fila.punto_reorden }}</span></td>
                                 <td>{{ fila.lead_time_semanas }} semana(s)</td>
-                                <td><strong class="text-primary">{{ fila.cantidad_sugerida_pedido if fila.cantidad_sugerida_pedido is not none else "—" }}</strong></td>
+                                <td>
+                                    <strong class="text-primary">
+                                        {% if fila.cantidad_sugerida_pedido is not none %}
+                                        <span class="valor-num" data-valor="{{ fila.cantidad_sugerida_pedido }}">{{ fila.cantidad_sugerida_pedido }}</span>
+                                        {% else %}—{% endif %}
+                                    </strong>
+                                </td>
                                 <td>{{ "$" + (fila.costo_estimado_pedido | moneda) if fila.costo_estimado_pedido is not none else "—" }}</td>
                                 <td>
                                     {% if fila.costo_ruptura_estimado is not none %}

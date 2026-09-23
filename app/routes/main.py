@@ -100,8 +100,13 @@ def pantalla_sin_datos():
 def inicio():
     """Primera pantalla que ve cualquier usuario al entrar — un menú de
     tarjetas con todas las opciones del sistema, filtradas según el rol
-    (un empleado no ve las tarjetas de administración)."""
-    return render_template("inicio.html")
+    (un empleado no ve las tarjetas de administración). Se le pasa el
+    último resultado (si existe) solo para poder resaltar la tarjeta de
+    Pedido en rojo cuando hay productos en alerta — no se redirige a
+    "sin datos" si todavía no hay ninguno, porque esta pantalla es un
+    menú, no una que necesite los datos para funcionar."""
+    resultado = cargar_ultimo_resultado(session["empresa_id"])
+    return render_template("inicio.html", r=resultado)
 
 
 @main_bp.route("/", methods=["GET"])

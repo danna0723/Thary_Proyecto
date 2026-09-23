@@ -105,4 +105,33 @@ document.addEventListener("DOMContentLoaded", function () {
         btnSubir.disabled = true;
         overlay.hidden = false;
     });
+
+    // Tarjeta "Columnas que reconoce el archivo": arranca escondida y la
+    // columna de subida centrada (mx-auto) para aprovechar el espacio;
+    // "Más información" la muestra y descentra la columna de subida, el
+    // botón "x" adentro de la tarjeta la vuelve a esconder.
+    var colSubir = document.getElementById("col-subir");
+    var colColumnas = document.getElementById("col-columnas");
+    var btnMostrarColumnas = document.getElementById("btn-mostrar-columnas");
+    var btnCerrarColumnas = document.getElementById("btn-cerrar-columnas");
+    if (colSubir && colColumnas && btnMostrarColumnas && btnCerrarColumnas) {
+        var DURACION_ANIMACION_MS = 400;
+        colSubir.classList.add("col-subir-centrado");
+        btnMostrarColumnas.addEventListener("click", function () {
+            colColumnas.hidden = false;
+            colSubir.classList.remove("col-subir-centrado");
+            // Fuerza un reflow entre sacar "hidden" y agregar la clase que
+            // dispara la transición — si no, el navegador aplica los dos
+            // cambios juntos y no hay animación de entrada.
+            void colColumnas.offsetWidth;
+            colColumnas.classList.add("columnas-visible");
+        });
+        btnCerrarColumnas.addEventListener("click", function () {
+            colColumnas.classList.remove("columnas-visible");
+            colSubir.classList.add("col-subir-centrado");
+            setTimeout(function () {
+                colColumnas.hidden = true;
+            }, DURACION_ANIMACION_MS);
+        });
+    }
 });

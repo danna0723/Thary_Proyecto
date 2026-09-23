@@ -165,6 +165,7 @@ TABLAS_DDL = [
         mae DOUBLE,
         rmse DOUBLE,
         r2 DOUBLE,
+        mediana_error DOUBLE,
         mape DOUBLE,
         wape DOUBLE,
         FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
@@ -302,6 +303,7 @@ def crear_base_de_datos_si_no_existe():
 COLUMNAS_NUEVAS = [
     ("reorder", "margen_unitario", "DOUBLE"),
     ("reorder", "costo_ruptura_estimado", "DOUBLE"),
+    ("metricas_modelos", "mediana_error", "DOUBLE"),
 ]
 
 

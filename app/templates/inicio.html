@@ -44,11 +44,16 @@
         </div>
         <i class="fa fa-chevron-right inicio-card-flecha"></i>
     </a>
-    <a href="{{ url_for('main.pedido') }}" class="inicio-card">
+    <a href="{{ url_for('main.pedido') }}" class="inicio-card{{ ' inicio-card-alerta' if r is defined and r and r.productos_en_alerta else '' }}">
         <div class="inicio-card-icono inicio-icono-pedido"><i class="fa fa-shopping-cart"></i></div>
         <div class="inicio-card-texto">
             <h3>Pedido</h3>
-            <p>Confirmar o deshacer los pedidos ya realizados.</p>
+            <p>
+                {% if r is defined and r and r.productos_en_alerta %}
+                {{ r.productos_en_alerta }} producto{{ 's' if r.productos_en_alerta != 1 else '' }} en alerta —
+                {% endif %}
+                Confirmar o deshacer los pedidos ya realizados.
+            </p>
         </div>
         <i class="fa fa-chevron-right inicio-card-flecha"></i>
     </a>

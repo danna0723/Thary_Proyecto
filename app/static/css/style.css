@@ -1334,6 +1334,11 @@ a.inicio-card {
 a.inicio-card:hover, a.inicio-card:focus {
     text-decoration: none;
 }
+/* Al menos un producto en alerta esperando pedido — ver inicio.html */
+a.inicio-card.inicio-card-alerta {
+    border-color: var(--md-acento-texto);
+    box-shadow: 0 0 0 1px var(--md-acento-texto);
+}
 .inicio-card:hover {
     transform: translateY(-3px);
     border-color: var(--md-primary);
@@ -1391,4 +1396,187 @@ a.inicio-card:hover, a.inicio-card:focus {
 .inicio-card:hover .inicio-card-flecha {
     opacity: 1;
     transform: translateX(0);
+}
+
+/* ---------- Toggle enteros/decimales (tablas con cantidades) ---------- */
+.toggle-decimales {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--md-border);
+    border-radius: .5rem;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.toggle-decimales-etiqueta {
+    padding: 6px 10px 6px 12px;
+    font-size: .75rem;
+    color: var(--md-text-muted);
+}
+.toggle-decimales-btn {
+    background: var(--md-card-bg);
+    border: none;
+    border-left: 1px solid var(--md-border);
+    padding: 6px 14px;
+    font-size: .78rem;
+    color: var(--md-text-muted);
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+}
+.toggle-decimales-btn.activo {
+    background-color: var(--md-primary);
+    color: #fff;
+}
+
+/* ---------- Encabezado de sección (panel técnico) ---------- */
+.titulo-seccion-tecnica {
+    margin: 8px 0 18px;
+    padding-left: 14px;
+    border-left: 4px solid var(--md-primary);
+}
+.titulo-seccion-tecnica h2 {
+    color: var(--md-text);
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+/* ---------- Descarga de plantilla de ejemplo (pantalla de subida) ---------- */
+.plantilla-fila {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 18px 0;
+}
+.plantilla-descarga {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 220px;
+    padding: 12px 16px;
+    background-color: rgba(77, 156, 150, .1);
+    border: 1px solid var(--md-primary);
+    border-radius: .65rem;
+    color: var(--md-text);
+    font-size: .85rem;
+    line-height: 1.4;
+    transition: background-color .15s ease;
+}
+.plantilla-descarga:hover,
+.plantilla-descarga:focus {
+    background-color: rgba(77, 156, 150, .18);
+    color: var(--md-text);
+}
+.plantilla-descarga i {
+    flex: 0 0 auto;
+    font-size: 1.2rem;
+    color: var(--md-primary);
+}
+.btn-mas-info {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    background: transparent;
+    border: 1px solid var(--md-border);
+    border-radius: .65rem;
+    color: var(--md-text-muted);
+    font-size: .85rem;
+    white-space: nowrap;
+    transition: border-color .15s ease, color .15s ease;
+}
+.btn-mas-info:hover,
+.btn-mas-info:focus {
+    color: var(--md-primary);
+    border-color: var(--md-primary);
+}
+
+/* ---------- Card cerrable (columnas que reconoce el archivo) ---------- */
+.card-title-block-cerrable {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+.btn-cerrar-columnas {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: var(--md-text-muted);
+    font-size: 1.05rem;
+    padding: 4px 6px;
+    margin: -6px -8px 0 0;
+    line-height: 1;
+    border-radius: .4rem;
+    transition: color .15s ease, background-color .15s ease;
+}
+.btn-cerrar-columnas:hover,
+.btn-cerrar-columnas:focus {
+    color: var(--md-acento-texto);
+    background-color: rgba(249, 63, 63, .1);
+}
+
+/* ---------- Animación al mostrar/ocultar la tarjeta de columnas ---------- */
+/* Centra #col-subir con transform en vez de margin:auto (la clase
+   mx-auto de Bootstrap) porque un margen que va hacia/desde "auto" no
+   se puede animar con transition — el navegador lo aplica de golpe.
+   translateX(50%) desplaza el elemento un 25% del ancho de la fila (el
+   hueco que deja centrar una columna de 6 en una fila de 12), pero solo
+   tiene sentido cuando de verdad son columnas lado a lado (≥992px,
+   breakpoint "lg" de Bootstrap) — en mobile cada columna ya ocupa el
+   100% del ancho, así que no hace falta centrar nada. */
+#col-subir {
+    transition: transform .35s ease;
+}
+@media (min-width: 992px) {
+    #col-subir.col-subir-centrado {
+        transform: translateX(50%);
+    }
+}
+#col-columnas {
+    opacity: 0;
+    transform: translateY(-24px) scale(.98);
+    transition: opacity .4s ease, transform .4s ease;
+}
+#col-columnas.columnas-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* ---------- Ícono de ayuda con tooltip (formularios) ---------- */
+.ayuda-icono {
+    position: relative;
+    display: inline-flex;
+    margin-left: 4px;
+    color: var(--md-text-muted);
+    cursor: help;
+    outline: none;
+}
+.ayuda-icono:hover,
+.ayuda-icono:focus {
+    color: var(--md-primary);
+}
+.ayuda-tooltip {
+    display: none;
+    position: absolute;
+    z-index: 50;
+    bottom: 135%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 260px;
+    max-width: 70vw;
+    background-color: var(--md-card-bg);
+    border: 1px solid var(--md-card-border);
+    color: var(--md-text);
+    font-size: .78rem;
+    font-weight: 400;
+    line-height: 1.4;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
+}
+.ayuda-icono:hover .ayuda-tooltip,
+.ayuda-icono:focus .ayuda-tooltip {
+    display: block;
 }

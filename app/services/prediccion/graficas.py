@@ -39,17 +39,21 @@ def graficar_importancia_features(model, feature_cols, carpeta_resultados):
 
 # Ejemplo 1: gráfico de barras comparando modelos (equivalente al
 # "Benchmark bar chart" de la sección "Model Benchmarking" del notebook).
+# EXTENSIÓN PROPIA — el Ejemplo 1 solo compara con MAE/RMSE/MAPE; WAPE,
+# Mediana Error y R² (bondad de ajuste por mínimos cuadrados) no vienen
+# de ahí, se agregaron para el capítulo de juicio de expertos.
 def graficar_comparacion_metricas(resultados, carpeta_resultados):
     graficas_metricas = {}
-    metricas = ["MAE", "RMSE", "MAPE (%)", "WAPE (%)"]
+    metricas = ["MAE", "RMSE", "Mediana Error", "MAPE (%)", "WAPE (%)", "R2"]
     for metrica in metricas:
         ruta_grafica = os.path.join(
             carpeta_resultados,
             f"comparacion_{metrica.replace(' ', '_').replace('(', '').replace(')', '').replace('%', 'porcentaje')}.png"
         )
+        titulo_metrica = "R²" if metrica == "R2" else metrica
         plt.figure(figsize=(8, 5))
         plt.bar(resultados["Modelo"], resultados[metrica])
-        plt.title(f"Comparación de modelos - {metrica}")
+        plt.title(f"Comparación de modelos - {titulo_metrica}")
         plt.xticks(rotation=15)
         plt.tight_layout()
         plt.savefig(ruta_grafica, bbox_inches="tight")

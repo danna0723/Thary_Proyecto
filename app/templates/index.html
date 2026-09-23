@@ -6,8 +6,8 @@
 {% block subtitulo_pagina %}Sube tu archivo CSV de ventas para generar el pronóstico.{% endblock %}
 
 {% block contenido %}
-<div class="row">
-    <div class="col-12 col-lg-6">
+<div class="row" id="fila-subir">
+    <div class="col-12 col-lg-6" id="col-subir">
         <div class="card upload-card">
             <div class="card-block">
                 <form action="{{ url_for('main.procesar') }}" method="post" enctype="multipart/form-data" id="form-subir" novalidate>
@@ -45,36 +45,57 @@
                         </p>
                     </div>
 
+                    <div class="plantilla-fila">
+                        <a href="{{ static_url('plantilla_thary.csv') }}" download class="plantilla-descarga">
+                            <i class="fa fa-download"></i>
+                            <span><strong>Descarga una plantilla de ejemplo (.csv)</strong></span>
+                        </a>
+                        <button type="button" class="btn-mas-info" id="btn-mostrar-columnas">
+                            <i class="fa fa-info-circle"></i> Más información
+                        </button>
+                    </div>
+
                     <div class="paso">
                         <div class="paso-encabezado">
                             <span class="paso-numero">2</span>
                             <div>
                                 <h3 class="paso-titulo">Parámetros del pronóstico</h3>
-                                <p class="paso-ayuda">Ya vienen con valores por defecto — cámbialos solo si lo necesitas.</p>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="presupuesto">Presupuesto disponible para compras de inventario</label>
+                        <div class="row">
+                        <div class="form-group col-12 col-sm-6">
+                            <label for="presupuesto">
+                                Presupuesto disponible para compras de inventario
+                                <span class="ayuda-icono" tabindex="0">
+                                    <i class="fa fa-question-circle"></i>
+                                    <span class="ayuda-tooltip">
+                                        Se reparte en partes iguales entre todos los productos activos del
+                                        catálogo y limita cuánto se sugiere pedir de cada uno.
+                                    </span>
+                                </span>
+                            </label>
                             <div class="input-group">
                                 <div class="input-group-prepend"><span class="input-group-text">$</span></div>
                                 <input type="number" id="presupuesto" name="presupuesto" min="0" step="any" value="500000" class="form-control">
                             </div>
-                            <small class="form-text text-muted">
-                                Se reparte en partes iguales entre todos los productos activos del catálogo
-                                y limita cuánto se sugiere pedir de cada uno.
-                            </small>
                         </div>
-                        <div class="form-group mb-0">
-                            <label for="horizonte_meses">Cuántos meses hacia adelante pronosticar</label>
+                        <div class="form-group col-12 col-sm-6 mb-0">
+                            <label for="horizonte_meses">
+                                Cuántos meses hacia adelante pronosticar
+                                <span class="ayuda-icono" tabindex="0">
+                                    <i class="fa fa-question-circle"></i>
+                                    <span class="ayuda-tooltip">
+                                        Por ejemplo, 3 para ver los próximos 3 meses, o 12 para ver todo el
+                                        año que viene. Como el pronóstico se calcula mes a mes en cadena,
+                                        entre más meses pidas, más se puede acumular el error hacia el
+                                        final del horizonte.
+                                    </span>
+                                </span>
+                            </label>
                             <div class="input-group">
                                 <input type="number" id="horizonte_meses" name="horizonte_meses" min="1" max="24" step="1" value="3" class="form-control">
-                                <div class="input-group-append"><span class="input-group-text">meses</span></div>
                             </div>
-                            <small class="form-text text-muted">
-                                Por ejemplo, 3 para ver los próximos 3 meses, o 12 para ver todo el año que
-                                viene. Como el pronóstico se calcula mes a mes en cadena, entre más meses
-                                pidas, más se puede acumular el error hacia el final del horizonte.
-                            </small>
+                        </div>
                         </div>
                     </div>
 
@@ -95,11 +116,14 @@
         </div>
     </div>
 
-    <div class="col-12 col-lg-6">
+    <div class="col-12 col-lg-6" id="col-columnas" hidden>
         <div class="card">
             <div class="card-block">
-                <div class="card-title-block">
+                <div class="card-title-block card-title-block-cerrable">
                     <h3 class="title">Columnas que reconoce el archivo</h3>
+                    <button type="button" class="btn-cerrar-columnas" id="btn-cerrar-columnas" title="Ocultar">
+                        <i class="fa fa-times"></i>
+                    </button>
                 </div>
                 <p class="text-muted small">
                     El sistema acepta encabezados en español o en inglés — no hace falta que el
@@ -113,15 +137,15 @@
                     <table class="table table-sm">
                         <tbody>
                             <tr>
-                                <td><code>Fecha</code> / <code>Date</code> / <code>Sale_Date</code></td>
+                                <td class="text-primary"><code>Fecha</code> / <code>Date</code> / <code>Sale_Date</code></td>
                                 <td class="text-muted">Fecha de la venta o movimiento</td>
                             </tr>
                             <tr>
-                                <td><code>Producto</code> / <code>Product</code> / <code>Product_ID</code></td>
+                                <td class="text-primary"><code>Producto</code> / <code>Product</code> / <code>Product_ID</code></td>
                                 <td class="text-muted">Identificador del producto</td>
                             </tr>
                             <tr>
-                                <td><code>Demanda</code> / <code>Demand</code> / <code>Sales</code> / <code>Quantity_Sold</code></td>
+                                <td class="text-primary"><code>Demanda</code> / <code>Demand</code> / <code>Sales</code> / <code>Quantity_Sold</code></td>
                                 <td class="text-muted">Cantidad vendida</td>
                             </tr>
                         </tbody>

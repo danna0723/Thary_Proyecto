@@ -129,8 +129,13 @@ sin mezclar con el pronóstico ni con las sugerencias de pedido.
     <div class="col-12">
         <div class="card">
             <div class="card-block">
+                <div class="toggle-decimales" data-target="tabla-inventario">
+                    <span class="toggle-decimales-etiqueta">Cantidades:</span>
+                    <button type="button" class="toggle-decimales-btn activo" data-modo="decimales">Decimales</button>
+                    <button type="button" class="toggle-decimales-btn" data-modo="enteros">Enteros</button>
+                </div>
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover tabla-buscable">
+                    <table class="table table-striped table-hover tabla-buscable" id="tabla-inventario">
                         <thead>
                             <tr>
                                 <th>Producto</th>
@@ -167,8 +172,12 @@ sin mezclar con el pronóstico ni con las sugerencias de pedido.
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ fila.inventario_actual if fila.inventario_actual is not none else "—" }}</td>
-                                <td>{{ fila.punto_reorden }}</td>
+                                <td>
+                                    {% if fila.inventario_actual is not none %}
+                                    <span class="valor-num" data-valor="{{ fila.inventario_actual }}">{{ fila.inventario_actual }}</span>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td><span class="valor-num" data-valor="{{ fila.punto_reorden }}">{{ fila.punto_reorden }}</span></td>
                                 <td>{{ "$" + (fila.valor_inventario_actual | moneda) if fila.valor_inventario_actual is not none else "—" }}</td>
                                 <td>
                                     {% if fila.ordenar == "SI" %}

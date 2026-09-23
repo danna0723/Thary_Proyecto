@@ -369,6 +369,40 @@
                     buscadorNavbar.placeholder = "Sin tabla en esta página";
                 }
             }
+
+            // Toggle enteros/decimales para columnas de cantidades (no
+            // tiene sentido pedir/tener 12,5 tabletas) — genérico, sirve
+            // para cualquier tabla que tenga el control
+            // ".toggle-decimales" (con data-target="id-de-la-tabla") y
+            // valores marcados con class="valor-num" data-valor="...".
+            // Recuerda la preferencia elegida por tabla en localStorage.
+            document.querySelectorAll(".toggle-decimales").forEach(function (grupo) {
+                var tabla = document.getElementById(grupo.dataset.target);
+                if (!tabla) return;
+                var storageKey = "formatoNumeros_" + grupo.dataset.target;
+
+                function aplicar(modo) {
+                    grupo.querySelectorAll(".toggle-decimales-btn").forEach(function (btn) {
+                        btn.classList.toggle("activo", btn.dataset.modo === modo);
+                    });
+                    tabla.querySelectorAll(".valor-num").forEach(function (span) {
+                        var valor = parseFloat(span.getAttribute("data-valor"));
+                        if (isNaN(valor)) return;
+                        span.textContent = modo === "enteros"
+                            ? Math.round(valor).toString()
+                            : (Math.round(valor * 100) / 100).toString();
+                    });
+                    try { localStorage.setItem(storageKey, modo); } catch (e) { /* modo privado, etc. */ }
+                }
+
+                grupo.querySelectorAll(".toggle-decimales-btn").forEach(function (btn) {
+                    btn.addEventListener("click", function () { aplicar(btn.dataset.modo); });
+                });
+
+                var guardado = null;
+                try { guardado = localStorage.getItem(storageKey); } catch (e) { /* modo privado, etc. */ }
+                if (guardado === "enteros") aplicar("enteros");
+            });
         });
     </script>
     {# <script src="{{ static_url('js/asistente.js') }}"></script> #}

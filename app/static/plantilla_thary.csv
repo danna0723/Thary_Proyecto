@@ -1,0 +1,15 @@
+Fecha,Producto,Demanda,Nombre_Producto,Categoria,Inventario_Actual,Precio,Costo_unitario,Costo_pedido,Porcentaje_costo_mantenimiento,Lead_time_Semana,Proveedor,Proveedor_Alterno
+2024-01-31,1001,120,Producto Ejemplo A,Medicamentos,300,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-02-29,1001,135,Producto Ejemplo A,Medicamentos,280,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-03-31,1001,110,Producto Ejemplo A,Medicamentos,260,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-04-30,1001,128,Producto Ejemplo A,Medicamentos,240,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-05-31,1001,140,Producto Ejemplo A,Medicamentos,220,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-06-30,1001,132,Producto Ejemplo A,Medicamentos,200,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-07-31,1001,125,Producto Ejemplo A,Medicamentos,190,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-01-31,1002,45,Producto Ejemplo B,Dispositivos Medicos,90,32000,18000,50000,0.2,3,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-02-29,1002,50,Producto Ejemplo B,Dispositivos Medicos,80,32000,18000,50000,0.2,3,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-03-31,1002,38,Producto Ejemplo B,Dispositivos Medicos,95,32000,18000,50000,0.2,3,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-04-30,1002,42,Producto Ejemplo B,Dispositivos Medicos,88,32000,18000,50000,0.2,3,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-05-31,1002,55,Producto Ejemplo B,Dispositivos Medicos,75,32000,18000,50000,0.2,3,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-06-30,1002,48,Producto Ejemplo B,Dispositivos Medicos,70,32000,18000,50000,0.2,3,Proveedor Principal SAS,Proveedor Alterno SAS
+2024-07-31,1002,51,Producto Ejemplo B,Dispositivos Medicos,65,32000,18000,50000,0.2,3,Proveedor Principal SAS,Proveedor Alterno SAS

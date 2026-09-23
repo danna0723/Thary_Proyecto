@@ -31,7 +31,10 @@ TABLAS_RESULTADO = {
 # (modelos.py) con mayúsculas y símbolos ("MAPE (%)") porque así se
 # muestran en la tabla comparativa — no son nombres válidos de columna
 # SQL, así que se renombran solo para esta tabla.
-RENOMBRES_METRICAS = {"Modelo": "modelo", "MAE": "mae", "RMSE": "rmse", "R2": "r2", "MAPE (%)": "mape", "WAPE (%)": "wape"}
+RENOMBRES_METRICAS = {
+    "Modelo": "modelo", "MAE": "mae", "RMSE": "rmse", "R2": "r2",
+    "Mediana Error": "mediana_error", "MAPE (%)": "mape", "WAPE (%)": "wape",
+}
 RENOMBRES_METRICAS_INVERSO = {v: k for k, v in RENOMBRES_METRICAS.items()}
 
 

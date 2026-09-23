@@ -109,12 +109,21 @@ def evaluar_modelo(y_real, predicciones, nombre):
     rmse = np.sqrt(mean_squared_error(y_real, predicciones))
     r2 = r2_score(y_real, predicciones)
     wape = calcular_wape(y_real, predicciones)
+    # EXTENSIÓN PROPIA — la mediana del error absoluto, a diferencia del
+    # MAE (que es el PROMEDIO del error absoluto), no se deja arrastrar
+    # por unos pocos productos con error muy grande — sirve para ver si
+    # el MAE de un modelo está siendo inflado por pocos casos atípicos o
+    # si de verdad representa el error "típico" en el catálogo.
+    mediana_error = np.median(np.abs(np.asarray(y_real) - np.asarray(predicciones)))
     mask_no_cero = y_real > 0
     if mask_no_cero.sum() > 0:
         mape = mean_absolute_percentage_error(y_real[mask_no_cero], predicciones[mask_no_cero]) * 100
     else:
         mape = np.nan
-    return {"Modelo": nombre, "MAE": mae, "RMSE": rmse, "R2": r2, "MAPE (%)": mape, "WAPE (%)": wape}
+    return {
+        "Modelo": nombre, "MAE": mae, "RMSE": rmse, "R2": r2,
+        "Mediana Error": mediana_error, "MAPE (%)": mape, "WAPE (%)": wape,
+    }
 
 
 def benchmarking_modelos(y_test, pred_baseline_3, pred_lr, pred_xgb):
