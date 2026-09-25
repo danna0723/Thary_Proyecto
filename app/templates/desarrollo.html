@@ -131,6 +131,72 @@
     </div>
 </div>
 
+{% if filas_combinacion %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title">¿Aporta valor combinar modelos? — combinación vs. modelo único</h3>
+                </div>
+                <p class="text-muted small">
+                    Se combinan las predicciones de XGBoost y Media Móvil en un promedio ponderado:
+                    <em>combinación = w × XGBoost + (1 − w) × Media Móvil</em>. El peso <em>w</em> se elige
+                    por <strong>mínimos cuadrados</strong> — el valor que minimiza la suma de errores al
+                    cuadrado contra la demanda real, con todos los productos juntos (Bates y Granger, 1969;
+                    Granger y Ramanathan, 1984). Para que la comparación sea justa, el peso que se usa en
+                    cada mes se calcula <strong>sin ese mes</strong>: si no, el peso "vería" de antemano las
+                    respuestas contra las que después se mide el error.
+                </p>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Opción</th><th>MAE</th><th>RMSE</th><th>Mediana Error</th><th>R²</th><th>MAPE (%)</th><th>WAPE (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fila in filas_combinacion %}
+                            <tr>
+                                <td>{{ fila["Modelo"] }}</td>
+                                <td>{{ "%.2f"|format(fila["MAE"]) }}</td>
+                                <td>{{ "%.2f"|format(fila["RMSE"]) }}</td>
+                                <td>{{ "%.2f"|format(fila["Mediana Error"]) }}</td>
+                                <td>{{ "%.2f"|format(fila["R2"]) }}</td>
+                                <td>{{ "%.2f"|format(fila["MAPE (%)"]) if fila["MAPE (%)"] is not none else "—" }}</td>
+                                <td>{{ "%.2f"|format(fila["WAPE (%)"]) if fila["WAPE (%)"] is not none else "—" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mb-2">
+                    Peso estimado con todos los meses: <strong>{{ (detalle_combinacion.peso_xgboost * 100)|round(1) }}% XGBoost</strong>
+                    y <strong>{{ (detalle_combinacion.peso_media_movil * 100)|round(1) }}% Media Móvil</strong>.
+                    Pesos usados al evaluar cada mes (estimados sin ese mes):
+                    {% for mes, peso in detalle_combinacion.pesos_por_mes.items() %}{{ mes }}: {{ (peso * 100)|round(1) }}% XGBoost{{ ", " if not loop.last }}{% endfor %}.
+                </div>
+                <p class="text-muted small mb-0">
+                    {% if detalle_combinacion.mejora_mae_pct is not none and detalle_combinacion.mejora_mae_pct > 0 %}
+                    Respecto al mejor de los dos métodos por separado, la combinación reduce el MAE en
+                    {{ detalle_combinacion.mejora_mae_pct }}%
+                    {% elif detalle_combinacion.mejora_mae_pct is not none %}
+                    Respecto al mejor de los dos métodos por separado, la combinación no lo supera en MAE
+                    (queda {{ (detalle_combinacion.mejora_mae_pct * -1)|round(2) }}% por encima)
+                    {% endif %}
+                    {% if detalle_combinacion.mejora_rmse_pct is not none %}
+                    y {{ "en RMSE la reduce" if detalle_combinacion.mejora_rmse_pct > 0 else "en RMSE queda por encima" }}
+                    {{ detalle_combinacion.mejora_rmse_pct|abs }}%.
+                    {% endif %}
+                    Si los pesos cambian mucho de un mes a otro, la estimación es inestable — algo esperable
+                    con solo unos pocos meses de backtest.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row">
     <div class="col-12">
         <div class="card">

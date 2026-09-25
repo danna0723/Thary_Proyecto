@@ -14,6 +14,7 @@ from app.services.pedidos import cargar_pedidos, registrar_pedido, quitar_pedido
 from app.services.perfil_empresa import cargar_nombre_empresa
 from app.services.resultados import guardar_resultado, cargar_ultima_corrida
 from app.services.actividad import registrar as registrar_actividad, listar_propia, listar_empresa
+from app.services.prediccion.combinacion import evaluar_combinacion
 from app.services.prediccion.reposicion import DIAS_POR_MES
 from app.services.prediccion.pronostico_futuro import HORIZONTE_MESES_DEFAULT
 
@@ -207,7 +208,15 @@ def desarrollo():
         flash("Todavía no has subido ningún archivo. Sube un CSV primero.")
         return redirect(url_for("main.index"))
 
-    return render_template("desarrollo.html", r=resultado)
+    # Se calcula al momento (no se guarda en MySQL) a partir de las
+    # predicciones de backtest que ya están en el resultado, así también
+    # funciona con corridas viejas sin tocar la base de datos.
+    filas_combinacion, detalle_combinacion = evaluar_combinacion(resultado["predicciones"])
+
+    return render_template(
+        "desarrollo.html", r=resultado,
+        filas_combinacion=filas_combinacion, detalle_combinacion=detalle_combinacion,
+    )
 
 
 @main_bp.route("/dashboard", methods=["GET"])
