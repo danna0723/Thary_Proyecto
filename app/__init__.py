@@ -5,7 +5,22 @@ from flask import Flask, url_for, session
 def create_app():
 
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = "cambia-esta-clave-por-una-propia"
+
+    # Flask firma las cookies de sesión con esta clave (la sesión guarda el
+    # rol y la empresa del usuario), así que quien la conozca puede
+    # fabricar una sesión de administrador sin contraseña. Por eso NO
+    # puede estar escrita en el código (que va a GitHub): se lee de la
+    # variable de entorno SECRET_KEY, y si falta, la app se niega a
+    # arrancar en vez de usar una clave conocida. Solo "python run.py"
+    # (desarrollo local) define una clave de desarrollo — ver run.py.
+    secret_key = os.environ.get("SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError(
+            "Falta la variable de entorno SECRET_KEY. Defínela con un valor "
+            "aleatorio largo (en Railway: pestaña Variables del servicio). "
+            "Para generar uno: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+    app.config["SECRET_KEY"] = secret_key
 
     # Límite de tamaño de subida (protección básica contra denegación de
     # servicio por archivos enormes): el CSV real de referencia pesa ~1 MB,

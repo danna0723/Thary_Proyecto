@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 import numpy as np
 import pandas as pd
 
@@ -10,9 +13,79 @@ import pandas as pd
 # encabezados en inglés o español, meses incompletos, etc.).
 ETIQUETAS_COLUMNAS_OBLIGATORIAS = {
     "fecha": "Fecha (o Date, Sale_Date)",
-    "producto_id": "Producto (o Product, Product_ID)",
-    "demanda": "Demanda (o Demand, Sales, Quantity_Sold)",
+    "producto_id": "Código (o Code, Id, Product_ID)",
+    "demanda": "Cantidad (o Quantity, Demanda, Demand)",
 }
+
+# Nombres de encabezado aceptados para cada columna interna. El orden es
+# la prioridad: si el archivo trae dos columnas que sirven para lo mismo
+# (por ejemplo "Product_ID" y un "Id" de transacción), se usa la que
+# aparece primero en la lista. La comparación ignora mayúsculas, tildes y
+# espacios (ver _normalizar_encabezado): "Código", "codigo" y "CODIGO"
+# son lo mismo, y "Tiempo de entrega" equivale a "Tiempo_de_entrega".
+SINONIMOS_COLUMNAS = {
+    "fecha": ["Fecha", "Date", "Sale_Date"],
+    "producto_id": ["Product_ID", "Codigo", "Code", "Id"],
+    "demanda": ["Demanda", "Demand", "Quantity_Sold", "Sales", "Cantidad", "Quantity"],
+    "precio": ["Precio", "Price", "Unit_Price", "Price_per_unit"],
+    "inventario": ["Inventario_Actual", "Inventory", "Stock"],
+    "tienda_id": ["Store", "Store_ID"],
+    "categoria": ["Categoria", "Category", "Product_Category"],
+    "nombre_producto": ["Nombre_Producto", "Product_Name", "Nombre"],
+    "lead_time_semanas": ["Lead_time_Semana", "Lead_time", "Tiempo_de_entrega"],
+    "costo_pedido": [],
+    "costo_unitario": [],
+    "porcentaje_costo_mantenimiento": [],
+    "proveedor_principal": ["Proveedor_Principal", "Proveedor", "Supplier"],
+    "proveedor_alterno": ["Proveedor_Alterno", "Proveedor_Alternativo", "Alternate_Supplier"],
+}
+
+# "Producto" / "Product" son ambiguos: en muchos archivos son el código
+# del producto y en otros su nombre. Si el archivo trae una columna de
+# código clara (Código, Code, Id, Product_ID), "Producto"/"Product" se
+# toma como el NOMBRE; si no, se toma como el código (como siempre, así
+# los archivos que ya funcionaban siguen funcionando igual).
+NOMBRES_PRODUCTO_AMBIGUOS = ["Producto", "Product"]
+
+
+def _normalizar_encabezado(nombre):
+    """Minúsculas, sin tildes, con espacios/guiones como "_" — también
+    descarta el carácter invisible (BOM) con el que Excel suele marcar
+    los CSV en UTF-8."""
+    texto = unicodedata.normalize("NFKD", str(nombre)).encode("ascii", "ignore").decode()
+    return re.sub(r"[\s\-]+", "_", texto.strip().lower())
+
+
+def _renombrar_columnas(df):
+    """Renombra las columnas del archivo a los nombres internos (ver
+    SINONIMOS_COLUMNAS). Las columnas que no se reconocen quedan como
+    vinieron."""
+    rangos_por_destino = {}
+    for destino, nombres in SINONIMOS_COLUMNAS.items():
+        rangos = {}
+        for rango, nombre in enumerate([destino, *nombres]):
+            rangos.setdefault(_normalizar_encabezado(nombre), rango)
+        rangos_por_destino[destino] = rangos
+
+    normalizadas = {col: _normalizar_encabezado(col) for col in df.columns}
+    ambiguos = {_normalizar_encabezado(n) for n in NOMBRES_PRODUCTO_AMBIGUOS}
+    tiene_codigo = any(n in rangos_por_destino["producto_id"] for n in normalizadas.values())
+
+    # destino -> (rango, columna original): gana el de menor rango
+    elegidas = {}
+    for col, norm in normalizadas.items():
+        candidatos = [
+            (rangos[norm], destino)
+            for destino, rangos in rangos_por_destino.items() if norm in rangos
+        ]
+        if norm in ambiguos:
+            destino_ambiguo = "nombre_producto" if tiene_codigo else "producto_id"
+            candidatos.append((len(rangos_por_destino[destino_ambiguo]), destino_ambiguo))
+        for rango, destino in candidatos:
+            if destino not in elegidas or rango < elegidas[destino][0]:
+                elegidas[destino] = (rango, col)
+
+    return df.rename(columns={col: destino for destino, (_, col) in elegidas.items()})
 
 
 def cargar_y_limpiar(ruta_archivo):
@@ -45,24 +118,7 @@ def cargar_y_limpiar(ruta_archivo):
     if df.empty:
         raise ValueError("El archivo no tiene filas de datos, solo encabezados.")
 
-    df = df.rename(columns={
-        "Sale_Date": "fecha", "Date": "fecha", "date": "fecha", "Fecha": "fecha",
-        "Product_ID": "producto_id", "Product": "producto_id", "Producto": "producto_id",
-        "Quantity_Sold": "demanda", "Sales": "demanda", "Demand": "demanda", "Demanda": "demanda",
-        "Unit_Price": "precio", "Price": "precio", "Price_per_unit": "precio", "Precio": "precio",
-        "Inventario_Actual": "inventario", "Inventory": "inventario", "Stock": "inventario",
-        "Store": "tienda_id", "Store_ID": "tienda_id",
-        "Category": "categoria", "Product_Category": "categoria",
-        "Product_Name": "nombre_producto", "Nombre_Producto": "nombre_producto", "Nombre": "nombre_producto",
-        "Lead_time_Semana": "lead_time_semanas",
-        "Costo_pedido": "costo_pedido",
-        "Costo_unitario": "costo_unitario",
-        "Porcentaje_costo_mantenimiento": "porcentaje_costo_mantenimiento",
-        "Supplier": "proveedor_principal", "Proveedor": "proveedor_principal",
-        "Proveedor_Principal": "proveedor_principal",
-        "Alternate_Supplier": "proveedor_alterno", "Proveedor_Alterno": "proveedor_alterno",
-        "Proveedor_Alternativo": "proveedor_alterno",
-    })
+    df = _renombrar_columnas(df)
 
     columnas_faltantes = [c for c in ETIQUETAS_COLUMNAS_OBLIGATORIAS if c not in df.columns]
     if columnas_faltantes:

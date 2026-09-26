@@ -97,3 +97,69 @@ def test_algunas_filas_invalidas_se_descartan_pero_el_resto_se_procesa(tmp_path)
     )
     df = cargar_y_limpiar(ruta)
     assert len(df) == 3  # quedan enero, febrero y marzo
+
+
+FILAS_4_MESES = (
+    "2026-01-15,P1,10\n2026-02-15,P1,12\n2026-03-15,P1,11\n2026-04-15,P1,13\n"
+)
+
+
+def test_acepta_codigo_y_cantidad_como_nombres_de_columna(tmp_path):
+    """La pantalla de carga documenta Código/Code/Id para el código del
+    producto y Cantidad/Quantity para las unidades vendidas."""
+    ruta = escribir_csv(tmp_path, "Fecha,Código,Cantidad\n" + FILAS_4_MESES)
+    df = cargar_y_limpiar(ruta)
+    assert {"fecha", "producto_id", "demanda"} <= set(df.columns)
+    assert len(df) == 3
+
+
+def test_producto_es_el_nombre_si_el_archivo_trae_un_codigo(tmp_path):
+    """"Producto"/"Product" son ambiguos: si el archivo ya trae una
+    columna de código, se toman como el nombre del producto."""
+    ruta = escribir_csv(
+        tmp_path,
+        "Fecha,Code,Producto,Quantity\n"
+        "2026-01-15,C1,Aspirina,10\n2026-02-15,C1,Aspirina,12\n"
+        "2026-03-15,C1,Aspirina,11\n2026-04-15,C1,Aspirina,13\n",
+    )
+    df = cargar_y_limpiar(ruta)
+    assert (df["producto_id"] == "C1").all()
+    assert (df["nombre_producto"] == "Aspirina").all()
+
+
+def test_producto_solo_sigue_siendo_el_codigo(tmp_path):
+    """Compatibilidad: sin columna de código, "Producto" se usa como
+    identificador, como funcionaba antes."""
+    ruta = escribir_csv(tmp_path, "Fecha,Producto,Demanda\n" + FILAS_4_MESES)
+    df = cargar_y_limpiar(ruta)
+    assert "producto_id" in df.columns
+    assert "nombre_producto" not in df.columns
+
+
+def test_reconoce_tiempo_de_entrega_y_lead_time(tmp_path):
+    for encabezado in ["Tiempo de entrega", "Lead_time", "Lead_time_Semana"]:
+        ruta = escribir_csv(
+            tmp_path,
+            f"Fecha,Codigo,Demanda,{encabezado}\n"
+            "2026-01-15,P1,10,2\n2026-02-15,P1,12,2\n2026-03-15,P1,11,2\n2026-04-15,P1,13,2\n",
+            nombre=f"lt_{encabezado.replace(' ', '_')}.csv",
+        )
+        df = cargar_y_limpiar(ruta)
+        assert "lead_time_semanas" in df.columns, encabezado
+
+
+def test_encabezados_sin_importar_mayusculas_ni_tildes(tmp_path):
+    ruta = escribir_csv(tmp_path, "FECHA,CÓDIGO,DEMANDA\n" + FILAS_4_MESES)
+    df = cargar_y_limpiar(ruta)
+    assert {"fecha", "producto_id", "demanda"} <= set(df.columns)
+
+
+def test_si_hay_dos_columnas_de_codigo_gana_product_id(tmp_path):
+    """Un "Id" de transacción no debe pisar a "Product_ID"."""
+    ruta = escribir_csv(
+        tmp_path,
+        "Id,Fecha,Product_ID,Demanda\n"
+        "1,2026-01-15,P1,10\n2,2026-02-15,P1,12\n3,2026-03-15,P1,11\n4,2026-04-15,P1,13\n",
+    )
+    df = cargar_y_limpiar(ruta)
+    assert (df["producto_id"] == "P1").all()

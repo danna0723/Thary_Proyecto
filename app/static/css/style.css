@@ -1476,10 +1476,13 @@ a.inicio-card.inicio-card-alerta {
     justify-content: space-between;
     gap: 10px;
 }
-/* La plantilla base le agrega un ::after (clearfix) a .card-title-block;
-   dentro de este flex se vuelve un elemento más y, con el gap, empuja
-   el botón "X" 10px hacia adentro — se quita para que llegue al borde. */
-.card-title-block-cerrable::after {
+/* La plantilla base le agrega un ::after (clearfix, con display:block) a
+   ".card .card-title-block". Dentro de este flex ese ::after se vuelve un
+   TERCER elemento, y con justify-content: space-between el botón "X"
+   (el del medio) quedaba en el centro de la fila en vez de al borde.
+   El selector repite ".card" y la clase para ganarle en especificidad a
+   la regla de la plantilla — con uno más corto, display:none se ignora. */
+.card .card-title-block.card-title-block-cerrable::after {
     display: none;
 }
 .btn-cerrar-columnas {

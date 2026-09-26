@@ -138,15 +138,15 @@
                         <tbody>
                             <tr>
                                 <td class="text-primary"><code>Fecha</code> / <code>Date</code> / <code>Sale_Date</code></td>
-                                <td class="text-muted">Fecha de la venta o movimiento</td>
+                                <td class="text-muted">Fecha de la venta</td>
                             </tr>
                             <tr>
-                                <td class="text-primary"><code>Producto</code> / <code>Product</code> / <code>Product_ID</code></td>
-                                <td class="text-muted">Identificador del producto</td>
+                                <td class="text-primary"><code>Código</code> / <code>Code</code> / <code>Id</code></td>
+                                <td class="text-muted">Código del producto</td>
                             </tr>
                             <tr>
-                                <td class="text-primary"><code>Demanda</code> / <code>Demand</code> / <code>Sales</code> / <code>Quantity_Sold</code></td>
-                                <td class="text-muted">Cantidad vendida</td>
+                                <td class="text-primary"><code>Cantidad</code> / <code>Quantity</code> / <code>Demanda</code> / <code>Demand</code></td>
+                                <td class="text-muted">Unidades vendidas</td>
                             </tr>
                         </tbody>
                     </table>
@@ -159,36 +159,36 @@
                     <table class="table table-sm">
                         <tbody>
                             <tr>
-                                <td><code>Nombre_Producto</code> / <code>Product_Name</code></td>
-                                <td class="text-muted">Nombre legible del producto en las pantallas</td>
+                                <td><code>Producto</code> / <code>Product</code> / <code>Nombre_Producto</code> / <code>Product_Name</code></td>
+                                <td class="text-muted">Nombre del producto</td>
                             </tr>
                             <tr>
                                 <td><code>Categoria</code> / <code>Category</code></td>
-                                <td class="text-muted">Agrupa los productos por categoría</td>
+                                <td class="text-muted">Categoría del producto</td>
                             </tr>
                             <tr>
                                 <td><code>Inventario_Actual</code> / <code>Inventory</code> / <code>Stock</code></td>
-                                <td class="text-muted">Habilita las alertas de reposición y el valor del inventario</td>
+                                <td class="text-muted">Unidades disponibles en inventario (activa las alertas de pedido)</td>
                             </tr>
                             <tr>
                                 <td><code>Precio</code> / <code>Price</code> / <code>Unit_Price</code></td>
-                                <td class="text-muted">Se usa como variable del pronóstico</td>
+                                <td class="text-muted">Precio de venta (mejora el pronóstico y permite calcular el costo de ruptura)</td>
                             </tr>
                             <tr>
                                 <td><code>Costo_unitario</code></td>
-                                <td class="text-muted">Costos estimados y límite del presupuesto por producto</td>
+                                <td class="text-muted">Costo de compra por unidad (para estimar costos y limitar el pedido según el presupuesto)</td>
                             </tr>
                             <tr>
                                 <td><code>Costo_pedido</code>, <code>Porcentaje_costo_mantenimiento</code></td>
-                                <td class="text-muted">Junto con el costo unitario, habilitan el cálculo de EOQ</td>
+                                <td class="text-muted">Costo de hacer un pedido y de mantener el inventario (con el costo unitario, permiten calcular el pedido óptimo, EOQ)</td>
                             </tr>
                             <tr>
-                                <td><code>Lead_time_Semana</code></td>
-                                <td class="text-muted">Tiempo de entrega real del proveedor (si falta, se usa un valor por defecto)</td>
+                                <td><code>Lead_time_Semana</code> / <code>Lead_time</code> / <code>Tiempo de entrega</code></td>
+                                <td class="text-muted">Tiempo de entrega del proveedor, en semanas (si falta, se asumen unas 2 semanas)</td>
                             </tr>
                             <tr>
                                 <td><code>Proveedor</code> / <code>Supplier</code>, <code>Proveedor_Alterno</code></td>
-                                <td class="text-muted">Para elegir a quién pedirle al confirmar un pedido</td>
+                                <td class="text-muted">Proveedor principal y alterno, para elegir a quién pedirle al confirmar un pedido</td>
                             </tr>
                         </tbody>
                     </table>

@@ -1,4 +1,4 @@
-Fecha,Producto,Demanda,Nombre_Producto,Categoria,Inventario_Actual,Precio,Costo_unitario,Costo_pedido,Porcentaje_costo_mantenimiento,Lead_time_Semana,Proveedor,Proveedor_Alterno
+Fecha,Codigo,Demanda,Nombre_Producto,Categoria,Inventario_Actual,Precio,Costo_unitario,Costo_pedido,Porcentaje_costo_mantenimiento,Lead_time_Semana,Proveedor,Proveedor_Alterno
 2024-01-31,1001,120,Producto Ejemplo A,Medicamentos,300,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
 2024-02-29,1001,135,Producto Ejemplo A,Medicamentos,280,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
 2024-03-31,1001,110,Producto Ejemplo A,Medicamentos,260,15000,9000,50000,0.2,2,Proveedor Principal SAS,Proveedor Alterno SAS
