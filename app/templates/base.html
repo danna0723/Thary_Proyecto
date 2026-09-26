@@ -49,10 +49,9 @@
                     </div>
                 </div>
                 <div class="header-block header-block-buttons">
-                    <div class="header-search">
-                        <i class="fa fa-search"></i>
-                        <input type="text" id="buscador-navbar" placeholder="Buscar aquí" autocomplete="off">
-                    </div>
+                    {% if nombre_empresa %}
+                    <div class="header-empresa" title="{{ nombre_empresa }}">{{ nombre_empresa }}</div>
+                    {% endif %}
                     <div class="header-icon-group">
                         <button class="header-icon" id="tema-toggle" title="Cambiar a modo claro" type="button">
                             <i class="fa fa-sun-o"></i>
@@ -95,9 +94,6 @@
                             <img src="{{ static_url('img/logo-icono-blanco.png') }}" alt="Thary" class="brand-logo-mini tema-oscuro">
                             <img src="{{ static_url('img/logo-icono.png') }}" alt="Thary" class="brand-logo-mini tema-claro">
                         </a>
-                        {% if nombre_empresa %}
-                        <div class="sidebar-empresa nav-text" title="{{ nombre_empresa }}">{{ nombre_empresa }}</div>
-                        {% endif %}
                     </div>
 
                     {% if session.get('nombre') %}
@@ -351,23 +347,6 @@
                         perfilDropdown.classList.remove("mostrar");
                     }
                 });
-            }
-
-            // El buscador del navbar filtra la tabla de productos de la
-            // página actual (si tiene una) reutilizando el buscador de
-            // DataTables que ya se inicializó arriba — así no hay que
-            // mantener dos mecanismos de búsqueda distintos.
-            var buscadorNavbar = document.getElementById("buscador-navbar");
-            if (buscadorNavbar && window.jQuery) {
-                var primeraTabla = jQuery(".tabla-buscable").first();
-                if (primeraTabla.length && jQuery.fn.DataTable.isDataTable(primeraTabla)) {
-                    buscadorNavbar.addEventListener("input", function () {
-                        primeraTabla.DataTable().search(buscadorNavbar.value).draw();
-                    });
-                } else {
-                    buscadorNavbar.disabled = true;
-                    buscadorNavbar.placeholder = "Sin tabla en esta página";
-                }
             }
 
             // Toggle enteros/decimales para columnas de cantidades (no

@@ -8,9 +8,6 @@
 {% block contenido %}
 {% set es_admin = session.get('rol') == 'admin' %}
 
-<div class="title-block">
-    <h2 class="title">Tu día a día</h2>
-</div>
 <div class="inicio-grid">
     <a href="{{ url_for('main.dashboard') }}" class="inicio-card">
         <div class="inicio-card-icono inicio-icono-dashboard"><i class="fa fa-home"></i></div>

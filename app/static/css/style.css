@@ -133,19 +133,6 @@ a:hover { color: var(--md-primary-dark); }
    colapsado, y se verían los dos íconos superpuestos. */
 html:not([data-theme="light"]) .tema-claro { display: none !important; }
 [data-theme="light"] .tema-oscuro { display: none !important; }
-.sidebar-empresa {
-    margin-top: 10px;
-    font-size: .72rem;
-    font-weight: 600;
-    color: var(--md-text-muted);
-    opacity: .85;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 .sidebar-user {
     display: flex;
     align-items: center;
@@ -383,10 +370,11 @@ html:not([data-theme="light"]) .tema-claro { display: none !important; }
     white-space: nowrap;
 }
 
-/* Buscador (derecha del header). Selector con la misma especificidad
-   que ".header .header-block-buttons" de la plantilla base (que le
-   pone "margin: 0 auto" para centrarlo) — se neutraliza acá para que
-   quede pegado a la derecha, como en la referencia. */
+/* Derecha del header: nombre de la empresa + íconos. Selector con la
+   misma especificidad que ".header .header-block-buttons" de la
+   plantilla base (que le pone "margin: 0 auto" para centrarlo) — se
+   neutraliza acá para que quede pegado a la derecha, como en la
+   referencia. */
 .header .header-block-buttons {
     display: flex;
     align-items: center;
@@ -395,29 +383,18 @@ html:not([data-theme="light"]) .tema-claro { display: none !important; }
     margin-right: 0;
     text-align: left;
 }
-.header-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background-color: var(--md-bg-alt);
-    border: 1px solid var(--md-border);
-    border-radius: 999px;
-    padding: 7px 16px;
-    color: var(--md-text-muted);
-}
-.header-search input {
-    background: transparent;
-    border: none;
-    color: var(--md-text);
+/* Nombre de la empresa (antes vivía en el sidebar). Se trunca con
+   "…" si es muy largo para no empujar los íconos fuera de la pantalla. */
+.header-empresa {
+    max-width: 260px;
     font-size: .85rem;
-    width: 140px;
-    outline: none;
-}
-.header-search input::placeholder {
+    font-weight: 600;
     color: var(--md-text-muted);
-}
-.header-search input:disabled {
-    cursor: not-allowed;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Íconos del header (perfil, config, notificaciones) */
@@ -498,8 +475,9 @@ html:not([data-theme="light"]) .tema-claro { display: none !important; }
 }
 
 @media (max-width: 767.98px) {
-    .header-search {
-        display: none;
+    .header-empresa {
+        max-width: 110px;
+        font-size: .75rem;
     }
     /* En una pantalla angosta el celular ya "sabe" en qué sección está
        (se llegó ahí navegando el menú); mostrar solo la página actual
@@ -1498,6 +1476,12 @@ a.inicio-card.inicio-card-alerta {
     justify-content: space-between;
     gap: 10px;
 }
+/* La plantilla base le agrega un ::after (clearfix) a .card-title-block;
+   dentro de este flex se vuelve un elemento más y, con el gap, empuja
+   el botón "X" 10px hacia adentro — se quita para que llegue al borde. */
+.card-title-block-cerrable::after {
+    display: none;
+}
 .btn-cerrar-columnas {
     flex: 0 0 auto;
     background: transparent;
@@ -1505,7 +1489,7 @@ a.inicio-card.inicio-card-alerta {
     color: var(--md-text-muted);
     font-size: 1.05rem;
     padding: 4px 6px;
-    margin: -6px -8px 0 0;
+    margin: -8px -12px 0 0;
     line-height: 1;
     border-radius: .4rem;
     transition: color .15s ease, background-color .15s ease;
