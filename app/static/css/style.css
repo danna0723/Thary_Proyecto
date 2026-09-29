@@ -26,6 +26,13 @@
        .calendario-detalle-cantidad más abajo). */
     --md-acento-texto: #f93f3f;
     --md-success: #2dce89;
+    /* Único uso previsto: el semáforo de fechas del calendario de
+       pedidos (ver .calendario-celda-cercano/.calendario-badge-cercano
+       más abajo) — vencido/próximo/lejos usa rojo/amarillo/verde, la
+       única excepción al "el rojo no es un color de interfaz de uso
+       general" de la nota de arriba, porque acá el color ES el dato
+       (estado de la fecha), no una decoración. */
+    --md-warning: #fe974b;
     --md-text: #f5f5f5;
     --md-text-muted: #a8a8a8;
     --md-border: rgba(255, 255, 255, .08);
@@ -1089,8 +1096,9 @@ strong, b { color: var(--md-text); }
     border-radius: 50%;
     margin-right: 4px;
 }
-.calendario-punto-urgente { background-color: var(--md-primary); }
-.calendario-punto-proximo { background-color: #1f8ef1; }
+.calendario-punto-vencido { background-color: var(--md-acento-texto); }
+.calendario-punto-cercano { background-color: var(--md-warning); }
+.calendario-punto-lejos { background-color: var(--md-success); }
 
 .calendario-dias-semana {
     display: grid;
@@ -1139,6 +1147,24 @@ strong, b { color: var(--md-text); }
     border-color: var(--md-primary) !important;
     background-color: rgba(77, 156, 150, .08);
 }
+/* Semáforo de fechas: vencido (rojo) / próximo (amarillo) / lejos
+   (verde) — se calcula en el JS de calendario.html comparando la
+   fecha del día contra hoy, no contra el flag "urgente" del backend
+   (que refleja el punto de reorden, no el calendario real). La celda
+   seleccionada (arriba) le gana a estos tres por orden de aparición
+   en el CSS, así el color de fondo no se pisan entre sí. */
+.calendario-celda-vencido {
+    border-color: var(--md-acento-texto);
+    background-color: rgba(249, 63, 63, .1);
+}
+.calendario-celda-cercano {
+    border-color: var(--md-warning);
+    background-color: rgba(254, 151, 75, .12);
+}
+.calendario-celda-lejos {
+    border-color: var(--md-success);
+    background-color: rgba(45, 206, 137, .1);
+}
 .calendario-badge {
     position: absolute;
     bottom: 6px;
@@ -1154,8 +1180,9 @@ strong, b { color: var(--md-text); }
     align-items: center;
     justify-content: center;
 }
-.calendario-badge-urgente { background-color: var(--md-primary); }
-.calendario-badge-proximo { background-color: #1f8ef1; }
+.calendario-badge-vencido { background-color: var(--md-acento-texto); }
+.calendario-badge-cercano { background-color: var(--md-warning); }
+.calendario-badge-lejos { background-color: var(--md-success); }
 
 .calendario-detalle-lista {
     list-style: none;
@@ -1173,10 +1200,31 @@ strong, b { color: var(--md-text); }
 .calendario-detalle-item:last-child {
     border-bottom: none;
 }
-.calendario-detalle-item-urgente {
-    border-left: 3px solid var(--md-primary);
+.calendario-detalle-item-vencido {
+    border-left: 3px solid var(--md-acento-texto);
     padding-left: 8px;
 }
+.calendario-detalle-item-cercano {
+    border-left: 3px solid var(--md-warning);
+    padding-left: 8px;
+}
+.calendario-detalle-item-lejos {
+    border-left: 3px solid var(--md-success);
+    padding-left: 8px;
+}
+.calendario-detalle-estado {
+    display: inline-block;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+}
+.calendario-detalle-estado-vencido { color: var(--md-acento-texto); background-color: rgba(249, 63, 63, .12); }
+.calendario-detalle-estado-cercano { color: var(--md-warning); background-color: rgba(254, 151, 75, .15); }
+.calendario-detalle-estado-lejos { color: var(--md-success); background-color: rgba(45, 206, 137, .12); }
 .calendario-detalle-producto {
     font-size: .85rem;
     color: var(--md-text);
@@ -1194,37 +1242,6 @@ strong, b { color: var(--md-text); }
     color: var(--md-text-muted);
     font-size: .85rem;
 }
-
-/* ---------- Costos del inventario (presupuesto) ---------- */
-.costos-inventario-grid {
-    margin-top: 6px;
-}
-.costo-tipo-card {
-    height: 100%;
-    padding: 16px;
-    border-radius: .65rem;
-    background-color: var(--md-bg-alt);
-    border: 1px solid var(--md-border);
-}
-.costo-tipo-card h4 {
-    font-size: .88rem;
-    font-weight: 700;
-    color: var(--md-text);
-    margin: 10px 0 6px;
-}
-.costo-tipo-icono {
-    width: 38px;
-    height: 38px;
-    border-radius: .6rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 1rem;
-}
-.costo-tipo-pedido { background: linear-gradient(60deg, #1f8ef1, #3358f4); }
-.costo-tipo-almacenamiento { background: linear-gradient(60deg, #8965e0, #5e3fb8); }
-.costo-tipo-ruptura { background: linear-gradient(60deg, var(--md-primary), var(--md-primary-dark)); }
 
 /* ---------- Selector de tabla (presupuesto) ---------- */
 .selector-tabla-presupuesto {
@@ -1557,6 +1574,12 @@ a.inicio-card.inicio-card-alerta {
     color: var(--md-text);
     font-size: .78rem;
     font-weight: 400;
+    /* Reafirma el estilo normal del texto: el tooltip se usa dentro de
+       los encabezados de tabla (".table thead th"), que ponen su texto
+       en mayúsculas con letras espaciadas — sin esto, el tooltip
+       heredaba ese mismo estilo y quedaba difícil de leer. */
+    text-transform: none;
+    letter-spacing: normal;
     line-height: 1.4;
     text-align: left;
     padding: 10px 12px;
@@ -1566,4 +1589,18 @@ a.inicio-card.inicio-card-alerta {
 .ayuda-icono:hover .ayuda-tooltip,
 .ayuda-icono:focus .ayuda-tooltip {
     display: block;
+}
+/* Variantes para usar el mismo tooltip dentro de un <th>: la tabla
+   suele estar pegada arriba de la tarjeta, así que abrir hacia arriba
+   (el comportamiento por defecto, pensado para los labels del
+   formulario) lo corta contra el borde de ".table-responsive". Estas
+   dos clases se combinan con ".ayuda-tooltip" y no la reemplazan. */
+.ayuda-tooltip-abajo {
+    bottom: auto;
+    top: 135%;
+}
+.ayuda-tooltip-derecha {
+    left: auto;
+    right: 0;
+    transform: none;
 }

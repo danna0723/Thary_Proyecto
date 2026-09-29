@@ -20,65 +20,11 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
     | list
     | sort(attribute="dias_para_pedido") %}
 
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-block">
-                <div class="card-title-block">
-                    <h3 class="title">Costos del inventario</h3>
-                </div>
-                <p class="text-muted small">
-                    Todo inventario tiene tres tipos de costo asociado — esta pantalla calcula
-                    los tres, cada uno a partir de datos distintos del archivo subido.
-                </p>
-                <div class="row costos-inventario-grid">
-                    <div class="col-12 col-md-4">
-                        <div class="costo-tipo-card">
-                            <div class="costo-tipo-icono costo-tipo-pedido"><i class="fa fa-file-text-o"></i></div>
-                            <h4>Costo de pedidos</h4>
-                            <p class="text-muted small mb-0">
-                                Lo que cuesta cada orden de compra (gestión, transporte, procesamiento).
-                                Se usa junto con el costo de mantenimiento para calcular la <strong>cantidad
-                                óptima de pedido (EOQ)</strong> — pedir de más ahorra en costo de pedidos
-                                repetidos, pero encarece el almacenamiento.
-                            </p>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <div class="costo-tipo-card">
-                            <div class="costo-tipo-icono costo-tipo-almacenamiento"><i class="fa fa-archive"></i></div>
-                            <h4>Costo de almacenamiento</h4>
-                            <p class="text-muted small mb-0">
-                                Lo que cuesta mantener el stock guardado (espacio, seguro, obsolescencia),
-                                expresado como <code>Porcentaje_costo_mantenimiento</code> sobre el costo
-                                unitario. A mayor inventario, mayor este costo — por eso el EOQ no
-                                recomienda pedir "todo de una vez".
-                            </p>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <div class="costo-tipo-card">
-                            <div class="costo-tipo-icono costo-tipo-ruptura"><i class="fa fa-exclamation-triangle"></i></div>
-                            <h4>Costo de ruptura (stockout)</h4>
-                            <p class="text-muted small mb-0">
-                                La venta que se pierde si el producto se agota antes de que llegue el
-                                próximo pedido. Se estima con el margen por unidad (Precio − Costo_unitario)
-                                multiplicado por la demanda esperada durante el tiempo de entrega del
-                                proveedor — columna <strong>"Riesgo si no se pide"</strong> en la tabla de abajo.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <p class="text-muted small">
-    <strong>Stock de seguridad</strong>: colchón extra para no quedarse sin stock si la
-    demanda o el proveedor se retrasan de lo esperado.
-    <strong>Punto de reorden</strong>: nivel de inventario en el que hay que volver a pedir
-    (demanda esperada durante el tiempo de entrega + ese colchón).
+    Esta pantalla calcula los costos del inventario (pedidos, almacenamiento y ruptura) a
+    partir de los datos del archivo subido. Pasa el mouse sobre
+    <i class="fa fa-question-circle"></i> en los encabezados de la tabla de abajo para ver el
+    detalle de cada concepto.
 </p>
 {% if r.presupuesto_capital_trabajo %}
 <p class="text-muted small">
@@ -175,12 +121,70 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                                 <th>Categoría</th>
                                 <th>Proveedor</th>
                                 <th>Inventario actual</th>
-                                <th>Stock de seguridad</th>
-                                <th>Punto de reorden</th>
-                                <th>Tiempo de entrega del proveedor</th>
-                                <th>Cantidad sugerida a pedir</th>
-                                <th>Costo estimado del pedido</th>
-                                <th>Riesgo si no se pide</th>
+                                <th>
+                                    Stock de seguridad
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo">
+                                            Colchón extra de inventario para no quedarse sin stock si la
+                                            demanda o el proveedor se retrasan de lo esperado.
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>
+                                    Punto de reorden
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo">
+                                            Nivel de inventario en el que hay que volver a pedir: demanda
+                                            esperada durante el tiempo de entrega del proveedor, más el
+                                            stock de seguridad.
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>
+                                    Tiempo de entrega del proveedor
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo">
+                                            Cuánto tarda en llegar un pedido. Si falta este dato, se
+                                            asumen unas 2 semanas.
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>
+                                    Cantidad sugerida a pedir
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo">
+                                            La cantidad económica de pedido (EOQ), o lo que falta para
+                                            llegar al punto de reorden si no hay datos para calcular el
+                                            EOQ. Se limita al presupuesto de ese producto.
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>
+                                    Costo estimado del pedido
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo">
+                                            Cantidad sugerida a pedir multiplicada por el costo unitario
+                                            del producto.
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>
+                                    Riesgo si no se pide
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo ayuda-tooltip-derecha">
+                                            Costo de ruptura (<em>stockout</em>): lo que se dejaría de
+                                            ganar si el producto se agota antes del próximo pedido,
+                                            estimado con el margen por unidad y la demanda esperada en
+                                            ese tiempo.
+                                        </span>
+                                    </span>
+                                </th>
                                 <th>Acción</th>
                             </tr>
                         </thead>
@@ -293,10 +297,29 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                             <tr>
                                 <th>Producto</th>
                                 <th>Categoría</th>
-                                <th>Fecha estimada de pedido</th>
+                                <th>
+                                    Fecha estimada de pedido
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo">
+                                            Fecha en la que el inventario llegaría al punto de reorden,
+                                            asumiendo que se consume al ritmo promedio pronosticado.
+                                        </span>
+                                    </span>
+                                </th>
                                 <th>Días restantes</th>
                                 <th>Inventario actual</th>
-                                <th>Punto de reorden</th>
+                                <th>
+                                    Punto de reorden
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo">
+                                            Nivel de inventario en el que hay que volver a pedir: demanda
+                                            esperada durante el tiempo de entrega del proveedor, más el
+                                            stock de seguridad.
+                                        </span>
+                                    </span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>

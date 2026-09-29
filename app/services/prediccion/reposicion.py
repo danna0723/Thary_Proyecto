@@ -5,7 +5,7 @@ from app.services.prediccion.utils import nan_a_none
 
 SERVICE_LEVEL_Z = 1.65
 LEAD_TIME_DEFAULT_MESES = 0.5
-WORKING_CAPITAL_BUDGET_DEFAULT = 500_000
+WORKING_CAPITAL_BUDGET_DEFAULT = 27_000_000
 DIAS_POR_MES = 30.44
 
 # Techo de seguridad para "días hasta que haga falta pedir": muy por

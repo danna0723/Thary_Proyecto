@@ -43,8 +43,9 @@
                     <button type="button" class="calendario-nav" id="cal-siguiente" title="Mes siguiente"><i class="fa fa-chevron-right"></i></button>
                 </div>
                 <div class="calendario-leyenda">
-                    <span><span class="calendario-punto calendario-punto-urgente"></span> Hay que pedir ya</span>
-                    <span><span class="calendario-punto calendario-punto-proximo"></span> Pedido estimado a futuro</span>
+                    <span><span class="calendario-punto calendario-punto-vencido"></span> Fecha ya pasada</span>
+                    <span><span class="calendario-punto calendario-punto-cercano"></span> Próximo (7 días o menos)</span>
+                    <span><span class="calendario-punto calendario-punto-lejos"></span> Todavía falta tiempo</span>
                 </div>
                 <div class="calendario-dias-semana">
                     <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
@@ -89,8 +90,28 @@ document.addEventListener("DOMContentLoaded", function () {
     var MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     var hoy = new Date();
     var hoyStr = formatearFecha(hoy);
+    // Copia de "hoy" sin horas/minutos — para restar fechas en días
+    // completos (ver diasEntre) hace falta que las dos puntas de la
+    // resta estén a medianoche, si no la diferencia en milisegundos no
+    // cae en un múltiplo exacto de un día.
+    var hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     var mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     var seleccionada = hoyStr;
+
+    // Semáforo de fechas: cuántos días de anticipación todavía cuentan
+    // como "próximo" (amarillo) antes de pasar a "todavía falta tiempo"
+    // (verde). Un número más chico hace la vista más estricta.
+    var DIAS_CERCANO = 7;
+
+    function diasEntre(fecha, referencia) {
+        return Math.round((fecha - referencia) / 86400000);
+    }
+
+    function clasificarEstado(diasRestantes) {
+        if (diasRestantes < 0) return "vencido";
+        if (diasRestantes <= DIAS_CERCANO) return "cercano";
+        return "lejos";
+    }
 
     var titulo = document.getElementById("cal-titulo");
     var selectorAnio = document.getElementById("cal-anio");
@@ -152,13 +173,19 @@ document.addEventListener("DOMContentLoaded", function () {
             var fechaDia = new Date(mesActual.getFullYear(), mesActual.getMonth(), dia);
             var fechaStr = formatearFecha(fechaDia);
             var eventosDia = porFecha[fechaStr] || [];
-            var hayUrgente = eventosDia.some(function (e) { return e.urgente; });
+            // Todos los eventos de esta celda caen en el mismo día, así
+            // que comparten el mismo estado del semáforo — no hace
+            // falta mirarlos uno por uno como antes con "urgente".
+            var estadoDia = eventosDia.length ? clasificarEstado(diasEntre(fechaDia, hoySinHora)) : null;
 
             var celda = document.createElement("div");
             celda.className = "calendario-celda";
             if (fechaStr === hoyStr) celda.classList.add("calendario-celda-hoy");
             if (fechaStr === seleccionada) celda.classList.add("calendario-celda-seleccionada");
-            if (eventosDia.length) celda.classList.add("calendario-celda-con-eventos");
+            if (eventosDia.length) {
+                celda.classList.add("calendario-celda-con-eventos");
+                celda.classList.add("calendario-celda-" + estadoDia);
+            }
 
             var numero = document.createElement("span");
             numero.className = "calendario-numero";
@@ -167,7 +194,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (eventosDia.length) {
                 var badge = document.createElement("span");
-                badge.className = "calendario-badge " + (hayUrgente ? "calendario-badge-urgente" : "calendario-badge-proximo");
+                badge.className = "calendario-badge calendario-badge-" + estadoDia;
                 badge.textContent = eventosDia.length;
                 celda.appendChild(badge);
 
@@ -194,12 +221,24 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
+        // Misma idea que en la grilla: la fecha elegida es una sola,
+        // así que el estado del semáforo es uno solo para todo el día.
+        var partesSel = seleccionada.split("-").map(Number);
+        var fechaSel = new Date(partesSel[0], partesSel[1] - 1, partesSel[2]);
+        var estadoSel = clasificarEstado(diasEntre(fechaSel, hoySinHora));
+        var etiquetaEstado = {
+            vencido: "Fecha ya pasada",
+            cercano: "Próximo (" + DIAS_CERCANO + " días o menos)",
+            lejos: "Todavía falta tiempo",
+        }[estadoSel];
+
         var totalCantidad = 0, totalCosto = 0, conCosto = false;
-        var html = '<ul class="calendario-detalle-lista">';
+        var html = '<p class="calendario-detalle-estado calendario-detalle-estado-' + estadoSel + '">' + etiquetaEstado + '</p>';
+        html += '<ul class="calendario-detalle-lista">';
         eventosDia.forEach(function (ev) {
             totalCantidad += ev.cantidad || 0;
             if (ev.costo !== null && ev.costo !== undefined) { totalCosto += ev.costo; conCosto = true; }
-            html += '<li class="calendario-detalle-item' + (ev.urgente ? ' calendario-detalle-item-urgente' : '') + '">';
+            html += '<li class="calendario-detalle-item calendario-detalle-item-' + estadoSel + '">';
             html += '<div class="calendario-detalle-producto">' + (ev.nombre_producto || ev.producto_id);
             html += '<small class="d-block text-muted">' + ev.producto_id + (ev.proveedor ? " · " + ev.proveedor : "") + '</small></div>';
             html += '<div class="calendario-detalle-cantidad">' + (ev.cantidad !== null ? ev.cantidad + ' u.' : '—') + '</div>';
