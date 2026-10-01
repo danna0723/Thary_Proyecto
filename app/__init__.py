@@ -1,5 +1,6 @@
 import os
-from flask import Flask, url_for, session
+from flask import Flask, url_for, session, flash, redirect
+from werkzeug.exceptions import RequestEntityTooLarge
 
 
 def create_app():
@@ -91,6 +92,18 @@ def create_app():
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
     # app.register_blueprint(asistente_bp)
+
+    # Sin esto, un archivo que supera MAX_CONTENT_LENGTH (ver arriba)
+    # muestra la página cruda de error 413 de Werkzeug, en inglés y sin
+    # nada del estilo del sistema — acá se atrapa esa excepción y se
+    # redirige a la pantalla de carga con el mismo tipo de aviso que ya
+    # usan los demás errores del formulario (ver procesar() en
+    # app/routes/main.py).
+    @app.errorhandler(RequestEntityTooLarge)
+    def archivo_demasiado_grande(error):
+        limite_mb = app.config["MAX_CONTENT_LENGTH"] // (1024 * 1024)
+        flash(f"El archivo supera el límite de {limite_mb} MB. Sube un CSV más pequeño.")
+        return redirect(url_for("main.index"))
 
     @app.context_processor
     def inyectar_nombre_empresa():
