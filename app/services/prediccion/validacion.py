@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 from app.services.prediccion.modelos import (
-    elegir_campeon_por_producto,
     entrenar_xgboost,
     evaluar_modelo,
     prediccion_baseline_movil,
@@ -55,13 +54,25 @@ def _armar_folds(meses_ordenados):
 
 
 # EXTENSIÓN PROPIA — no viene de ningún ejemplo de referencia. Ninguno
-# valida con más de un split; acá se repite el pipeline completo (los
-# tres modelos MÁS la selección de campeón por producto de
-# modelos.py::elegir_campeon_por_producto, no solo un modelo aislado)
-# contra varios períodos de tiempo distintos, para confirmar que las
-# métricas de la tabla comparativa de producción no son un golpe de
-# suerte de ese único período de prueba.
-def validacion_cruzada_temporal(df_model, feature_cols):
+# valida con más de un split; acá se repite el entrenamiento de los
+# tres modelos contra varios períodos de tiempo distintos, para
+# confirmar que las métricas de la tabla comparativa de producción no
+# son un golpe de suerte de ese único período de prueba.
+#
+# "campeon" se recibe como parámetro — es el MISMO método por producto
+# que ya se decidió en el pipeline principal (sistema_prediccion.py),
+# con su propio período de VALIDACIÓN, nunca con el test de cada fold.
+# Antes, cada fold volvía a elegir campeón con los datos de su propio
+# test_fold — la misma fuga de selección que se corrigió en
+# construir_tabla_predicciones (ver el comentario junto a
+# elegir_campeon_por_producto en modelos.py), repetida en cada fold.
+# Reutilizar una política de selección ya decidida, y solo comprobar si
+# esa decisión se sostiene en otros períodos históricos, es lo que
+# realmente responde la pregunta que esta validación cruzada quiere
+# contestar: no "¿puedo elegir mejor sabiendo la respuesta de este
+# período?" (que siempre es sí, por construcción), sino "¿la decisión
+# que ya tomé con otro período sigue funcionando acá?".
+def validacion_cruzada_temporal(df_model, feature_cols, campeon):
     """
     Devuelve (detalle_folds, resumen):
       - detalle_folds: una fila por (fold, modelo) con sus métricas —
@@ -100,14 +111,15 @@ def validacion_cruzada_temporal(df_model, feature_cols):
             "XGBoost": evaluar_modelo(y_test.values, pred_xgb, "XGBoost"),
         }
 
-        # "Sistema final" de este fold: mismo mecanismo de campeón por
-        # producto que en producción, aplicado a los datos de este fold.
+        # "Sistema final" de este fold: se aplica la MISMA política de
+        # selección por producto decidida en el pipeline principal
+        # (parámetro "campeon"), no una elegida de nuevo con el test de
+        # este fold — ver el comentario largo arriba.
         tabla_fold = test_fold[["producto_id", "demanda"]].copy()
         tabla_fold["prediccion_media_movil"] = pred_baseline
         tabla_fold["prediccion_regresion_lineal"] = pred_lr
         tabla_fold["prediccion_xgboost"] = pred_xgb
-        campeon_fold = elegir_campeon_por_producto(tabla_fold)
-        tabla_fold["metodo_usado"] = tabla_fold["producto_id"].map(campeon_fold)
+        tabla_fold["metodo_usado"] = tabla_fold["producto_id"].map(campeon).fillna("Media móvil")
         tabla_fold["prediccion_final"] = seleccionar_prediccion_final(tabla_fold)
         metricas_fold["Sistema final"] = evaluar_modelo(
             tabla_fold["demanda"].values, tabla_fold["prediccion_final"].values, "Sistema final"

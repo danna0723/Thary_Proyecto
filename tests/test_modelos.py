@@ -19,13 +19,25 @@ prefiere "Media móvil" en vez del que ganó por una diferencia que podría
 ser puro ruido — relevante porque el backtest real tiene muy pocos meses
 (3 a 5). Los valores esperados de estas pruebas ya incorporan ese
 comportamiento, no solo el MAE.
+
+construir_tabla_predicciones ya NO elige su propio campeón (antes lo
+calculaba con la misma tabla de test que después evaluaba — fuga de
+datos: el "sistema final" casi no podía perder contra Media Móvil en
+ese test, porque la elección ya conocía la respuesta de ese mismo
+período). Ahora recibe el campeón como parámetro, ya decidido con un
+período de VALIDACIÓN distinto — las pruebas de más abajo confirman que
+usa EXACTAMENTE el que se le pasa, sin recalcular uno propio a partir
+de la demanda/predicciones de test_df.
 """
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from app.services.prediccion.modelos import (
     COLUMNA_PREDICCION_POR_METODO,
+    calcular_errores_por_producto,
+    construir_tabla_predicciones,
     elegir_campeon_por_producto,
     seleccionar_prediccion_final,
     tamano_test_backtest,
@@ -80,10 +92,17 @@ def test_elegir_campeon_por_producto_diferencia_no_significativa_usa_media_movil
         "prediccion_xgboost": [15, 15, 90, 190],
     })
 
-    campeon = elegir_campeon_por_producto(tabla)
+    campeon, errores = elegir_campeon_por_producto(tabla)
 
     assert campeon["A"] == "Media móvil"
     assert campeon["B"] == "Media móvil"
+    # MAE de cada método por producto (calculados a mano en el docstring
+    # de arriba) — errores_por_producto los devuelve TODOS, no solo el
+    # del campeón, para poder armar el rango de pronóstico futuro.
+    assert errores.loc["A", "Media móvil"] == pytest.approx(2.0)
+    assert errores.loc["A", "Regresión Lineal"] == pytest.approx(2.5)
+    assert errores.loc["A", "XGBoost"] == pytest.approx(5.0)
+    assert errores.loc["B", "Regresión Lineal"] == pytest.approx(5.0)
 
 
 def test_elegir_campeon_por_producto_diferencia_clara_y_sostenida_si_gana():
@@ -100,7 +119,7 @@ def test_elegir_campeon_por_producto_diferencia_clara_y_sostenida_si_gana():
         "prediccion_regresion_lineal": [130, 135, 125, 132, 128],
         "prediccion_xgboost": [102, 101, 103, 99, 101],
     })
-    campeon = elegir_campeon_por_producto(tabla)
+    campeon, _ = elegir_campeon_por_producto(tabla)
     assert campeon["D"] == "XGBoost"
 
 
@@ -117,7 +136,7 @@ def test_elegir_campeon_por_producto_empate_exacto_usa_media_movil():
         "prediccion_regresion_lineal": [8, 8],  # error 2 (empate)
         "prediccion_xgboost": [20, 20],       # error 10
     })
-    campeon = elegir_campeon_por_producto(tabla)
+    campeon, _ = elegir_campeon_por_producto(tabla)
     assert campeon["C"] == "Media móvil"
 
 
@@ -147,3 +166,89 @@ def test_seleccionar_prediccion_final_cubre_los_tres_metodos():
     })
     resultado = seleccionar_prediccion_final(tabla)
     assert list(resultado) == [111, 222, 333]
+
+
+def test_calcular_errores_por_producto():
+    """Mismo cálculo a mano que el producto A del docstring de arriba:
+    MAE de Media Móvil = 2.0, Regresión Lineal = 2.5, XGBoost = 5.0."""
+    tabla = pd.DataFrame({
+        "producto_id": ["A", "A"],
+        "demanda": [10, 20],
+        "prediccion_media_movil": [12, 18],
+        "prediccion_regresion_lineal": [10, 25],
+        "prediccion_xgboost": [15, 15],
+    })
+    errores = calcular_errores_por_producto(tabla)
+    assert errores.loc["A", "Media móvil"] == pytest.approx(2.0)
+    assert errores.loc["A", "Regresión Lineal"] == pytest.approx(2.5)
+    assert errores.loc["A", "XGBoost"] == pytest.approx(5.0)
+
+
+class TestConstruirTablaPrediccionesSinFugaDeSeleccion:
+    """
+    construir_tabla_predicciones recibe el campeón como parámetro — no
+    lo calcula con test_df. Para el producto "Z", la demanda real de
+    los dos meses de test es [10, 10]: XGBoost predice exactamente
+    [10, 10] (error 0) y Media Móvil predice [100, 100] (error 90). Si
+    la función eligiera su propio campeón con estos mismos datos,
+    elegiría XGBoost sin dudarlo — pero se le pasa a propósito un
+    campeón que dice "Media móvil" para "Z" (como si así se hubiera
+    decidido con el período de validación), y tiene que respetarlo.
+    """
+
+    @pytest.fixture
+    def resultado(self):
+        test_df = pd.DataFrame({
+            "fecha": pd.to_datetime(["2024-01-01", "2024-02-01"]),
+            "producto_id": ["Z", "Z"],
+            "demanda": [10, 10],
+            "categoria_abc": ["A", "A"],
+            "variabilidad": ["Baja", "Baja"],
+        })
+        campeon_de_validacion = pd.Series({"Z": "Media móvil"})
+        return construir_tabla_predicciones(
+            test_df,
+            pred_baseline_3=np.array([100, 100]),
+            pred_lr=np.array([50, 50]),
+            pred_xgb=np.array([10, 10]),
+            campeon=campeon_de_validacion,
+        )
+
+    def test_usa_el_metodo_del_campeon_recibido_no_el_de_menor_error_en_test(self, resultado):
+        resultados_prediccion, *_ = resultado
+        assert (resultados_prediccion["metodo_usado"] == "Media móvil").all()
+        assert (resultados_prediccion["prediccion_final"] == 100).all()
+
+    def test_metodo_campeon_devuelto_es_el_mismo_que_se_recibio(self, resultado):
+        _, _, _, metodo_campeon, _ = resultado
+        assert metodo_campeon["Z"] == "Media móvil"
+
+    def test_errores_por_producto_si_reflejan_la_realidad_del_test(self, resultado):
+        """No hay fuga en REPORTAR qué tanto se equivocó cada método en
+        el test (eso alimenta el rango de pronóstico futuro) — la fuga
+        estaba en usar esos mismos números para DECIDIR el método."""
+        _, _, _, _, errores = resultado
+        assert errores.loc["Z", "XGBoost"] == pytest.approx(0.0)
+        assert errores.loc["Z", "Media móvil"] == pytest.approx(90.0)
+
+
+def test_construir_tabla_predicciones_producto_sin_campeon_cae_a_media_movil():
+    """Un producto que no llegó al período de validación (catálogos muy
+    chicos) no tiene entrada en "campeon" — tiene que caer a Media Móvil
+    como respaldo seguro, no a NaN."""
+    test_df = pd.DataFrame({
+        "fecha": pd.to_datetime(["2024-01-01"]),
+        "producto_id": ["W"],
+        "demanda": [5.0],
+        "categoria_abc": ["C"],
+        "variabilidad": ["Baja"],
+    })
+    campeon_de_validacion = pd.Series({"Z": "XGBoost"})  # no incluye "W"
+    resultados_prediccion, *_ = construir_tabla_predicciones(
+        test_df,
+        pred_baseline_3=np.array([5.0]),
+        pred_lr=np.array([5.0]),
+        pred_xgb=np.array([5.0]),
+        campeon=campeon_de_validacion,
+    )
+    assert resultados_prediccion.loc[0, "metodo_usado"] == "Media móvil"

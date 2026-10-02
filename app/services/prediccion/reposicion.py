@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from app.services.prediccion.pronostico_futuro import MAE_POR_METODO_COL
 from app.services.prediccion.utils import nan_a_none
 
 SERVICE_LEVEL_Z = 1.65
@@ -66,7 +67,7 @@ def calcular_tabla_reorden(
     # estadísticas del pronóstico por producto, última fila de
     # df_mensual por producto, y producto_comportamiento indexado.
     stats_pronostico = pronostico_futuro_df.groupby("producto_id")["prediccion_final"].agg(
-        demanda_promedio="mean", desviacion_demanda=lambda x: np.std(x)
+        demanda_promedio="mean", desviacion_pronostico_std=lambda x: np.std(x)
     )
     ultima_fila_por_producto = (
         df_mensual.sort_values("fecha").groupby("producto_id").tail(1).set_index("producto_id")
@@ -78,8 +79,8 @@ def calcular_tabla_reorden(
         if producto not in stats_pronostico.index:
             continue
         demanda_promedio = stats_pronostico.at[producto, "demanda_promedio"]
-        desviacion_demanda = stats_pronostico.at[producto, "desviacion_demanda"]
         fila_params = ultima_fila_por_producto.loc[producto]
+        segmento = producto_comportamiento_idx.loc[producto]
 
         lead_time_meses = (
             fila_params["lead_time_semanas"] / 4.345
@@ -90,11 +91,73 @@ def calcular_tabla_reorden(
         porcentaje_mantenimiento = fila_params.get("porcentaje_costo_mantenimiento", np.nan)
         costo_unitario_producto = fila_params.get("costo_unitario", np.nan)
 
+        # EXTENSIÓN PROPIA (corrección) — sigma_demanda tiene que ser qué
+        # tanto se EQUIVOCA el pronóstico, no qué tanto varían los valores
+        # pronosticados entre sí. Antes se usaba np.std(prediccion_final)
+        # a lo largo del horizonte: con un método recursivo como Media
+        # Móvil, los pocos meses pronosticados suelen salir parecidos
+        # entre sí (la predicción de un mes alimenta la del siguiente), así
+        # que ese desvío queda chico incluso para productos con demanda
+        # muy errática — p. ej. en el catálogo clínico, un producto con
+        # MAE de backtest de 29.33 (la columna "¿Por qué algunos productos
+        # tienen baja confianza?") daba un stock de seguridad de apenas
+        # 3.77, calculado así. Ahora se usa directamente el MAE de
+        # backtest del método campeón (mae_media_movil/..., ya calculado
+        # en elegir_campeon_por_producto) — la misma medida de qué tanto
+        # se equivoca el pronóstico que ya se usa para el rango de
+        # predicción, en vez de una segunda noción de "variabilidad"
+        # distinta e inconsistente con esa. Sin MAE medido (producto sin
+        # backtest) se cae al criterio anterior, para no dejar el stock de
+        # seguridad sin ningún valor.
+        metodo_campeon = segmento["metodo_campeon"]
+        mae_campeon = segmento.get(MAE_POR_METODO_COL.get(metodo_campeon))
+        if mae_campeon is not None and not pd.isna(mae_campeon):
+            desviacion_demanda = mae_campeon
+        else:
+            desviacion_demanda = stats_pronostico.at[producto, "desviacion_pronostico_std"]
+
         # Ejemplo 1: Safety Stock = Z * sigma_demanda * sqrt(L)
         stock_seguridad = SERVICE_LEVEL_Z * desviacion_demanda * np.sqrt(lead_time_meses)
         # Ejemplo 1: Reorder Point = d_promedio * L + Safety Stock
         punto_reorden = demanda_promedio * lead_time_meses + stock_seguridad
         inventario_actual = fila_params.get("inventario", np.nan)
+
+        # EXTENSIÓN PROPIA — mismo punto de reorden, pero asumiendo que la
+        # demanda durante el lead time sigue una distribución LOG-NORMAL en
+        # vez de normal (ver stock_seguridad arriba). Es solo informativa:
+        # no reemplaza stock_seguridad/punto_reorden (que siguen siendo los
+        # que usa el sistema para decidir "ordenar" y la cantidad sugerida),
+        # se calcula para comparar ambos supuestos en el panel técnico.
+        #
+        # La normal es simétrica y, con suficiente variabilidad, permite
+        # matemáticamente demanda negativa (algo imposible en la realidad);
+        # la log-normal, al asumir que ln(demanda) es normal, respeta que la
+        # demanda nunca es negativa y captura mejor la cola derecha típica
+        # de productos de rotación baja/intermitente — el caso de hasta el
+        # 36% del catálogo clínico clasificado como variabilidad Media/Alta.
+        #
+        # Mismo criterio de ajuste por momentos que para la normal: se parte
+        # de la media y desviación del lead time ya calculadas arriba
+        # (mean_lt, std_lt), y se despeja mu/sigma de la log-normal que
+        # reproducen ese mismo CV (moment matching), en vez de ajustar la
+        # distribución a los datos crudos del backtest con muy pocos meses.
+        media_lt = demanda_promedio * lead_time_meses
+        desviacion_lt = desviacion_demanda * np.sqrt(lead_time_meses)
+        if media_lt > 0 and desviacion_lt > 0:
+            cv_lt = desviacion_lt / media_lt
+            sigma_log = np.sqrt(np.log(1 + cv_lt ** 2))
+            mu_log = np.log(media_lt) - (sigma_log ** 2) / 2
+            punto_reorden_lognormal = np.exp(mu_log + SERVICE_LEVEL_Z * sigma_log)
+            stock_seguridad_lognormal = punto_reorden_lognormal - media_lt
+        elif media_lt > 0:
+            # Sin variabilidad (desviacion_lt == 0), no hace falta stock de
+            # seguridad bajo ningún supuesto — coincide con la normal.
+            punto_reorden_lognormal = media_lt
+            stock_seguridad_lognormal = 0.0
+        else:
+            # Sin demanda pronosticada no hay distribución que asumir.
+            punto_reorden_lognormal = np.nan
+            stock_seguridad_lognormal = np.nan
 
         # Ejemplo 1: EOQ = sqrt(2 * D_anual * costo_pedido / costo_mantenimiento)
         demanda_anual_estimada = demanda_promedio * 12
@@ -167,8 +230,6 @@ def calcular_tabla_reorden(
             margen_unitario = np.nan
             costo_ruptura_estimado = np.nan
 
-        segmento = producto_comportamiento_idx.loc[producto]
-
         # Fecha estimada en la que el inventario va a llegar al punto de
         # reorden, asumiendo que se consume al ritmo promedio pronosticado
         # (una aproximación lineal — no sabe de picos puntuales dentro del
@@ -208,6 +269,8 @@ def calcular_tabla_reorden(
             "lead_time_meses": round(lead_time_meses, 2),
             "stock_seguridad": round(stock_seguridad, 2),
             "punto_reorden": round(punto_reorden, 2),
+            "stock_seguridad_lognormal": round(stock_seguridad_lognormal, 2) if not pd.isna(stock_seguridad_lognormal) else np.nan,
+            "punto_reorden_lognormal": round(punto_reorden_lognormal, 2) if not pd.isna(punto_reorden_lognormal) else np.nan,
             "inventario_actual": round(inventario_actual, 2) if not pd.isna(inventario_actual) else np.nan,
             "eoq": round(eoq, 0) if not pd.isna(eoq) else np.nan,
             "limite_presupuesto_unidades": limite_presupuesto,
@@ -237,6 +300,7 @@ def calcular_tabla_reorden(
         "fecha_estimada_pedido", "inventario_actual", "eoq", "limite_presupuesto_unidades",
         "cantidad_sugerida_pedido", "costo_unitario", "costo_estimado_pedido",
         "valor_inventario_actual", "dias_para_pedido", "margen_unitario", "costo_ruptura_estimado",
+        "stock_seguridad_lognormal", "punto_reorden_lognormal",
     ])
 
     return reorder_df, working_capital_budget, presupuesto_por_producto

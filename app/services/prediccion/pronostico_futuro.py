@@ -12,6 +12,62 @@ HORIZONTE_MESES_DEFAULT = 3
 HORIZONTE_MESES_MIN = 1
 HORIZONTE_MESES_MAX = 24
 
+# EXTENSIÓN PROPIA — en vez de mostrar solo un número cerrado, el
+# pronóstico futuro también reporta un rango [mínimo, máximo] alrededor
+# de cada predicción puntual. El margen es el MAE que tuvo, en el
+# backtest, el método que termina usándose para ese producto (ver
+# MAE_POR_METODO_COL más abajo) — "en el pasado reciente, este método se
+# equivocó en promedio esto para este producto". MARGEN_RANGO_MULTIPLICADOR
+# escala ese margen (1.0 = ±1 MAE a cada lado); es un criterio propio,
+# sin respaldo bibliográfico, pensado para dar una idea simple y barata
+# de incertidumbre sin entrenar modelos adicionales (a diferencia de un
+# enfoque de regresión por cuantiles, que sí requeriría eso). El rango no
+# crece con el horizonte (sería más honesto que lo hiciera, ya que el
+# pronóstico es recursivo y el error puede acumularse — ver el
+# comentario sobre HORIZONTE_MESES_MAX más abajo), queda como mejora futura.
+MARGEN_RANGO_MULTIPLICADOR = 1.0
+
+# Qué columna de producto_comportamiento (agregada en
+# sistema_prediccion.py a partir de elegir_campeon_por_producto) tiene el
+# MAE de cada método, para poder elegir la que corresponde al
+# metodo_usado real de cada producto-mes (que puede no ser el método
+# campeón, si actuó la salvaguarda de más abajo).
+MAE_POR_METODO_COL = {
+    "Media móvil": "mae_media_movil",
+    "Regresión Lineal": "mae_regresion_lineal",
+    "XGBoost": "mae_xgboost",
+}
+
+
+def calcular_rango_prediccion(prediccion, margen):
+    """
+    Rango [mínimo, máximo] alrededor de una predicción puntual, dado un
+    margen (el MAE del método usado, en el backtest, para ese producto).
+    Un margen nulo o NaN (producto sin datos de backtest) da un rango sin
+    ancho, igual al valor puntual — no se inventa una incertidumbre que
+    no se midió. El mínimo nunca baja de 0 (no hay demanda negativa).
+    """
+    if margen is None or (isinstance(margen, float) and np.isnan(margen)):
+        margen = 0.0
+    margen = margen * MARGEN_RANGO_MULTIPLICADOR
+    return max(0.0, prediccion - margen), prediccion + margen
+
+
+# EXTENSIÓN PROPIA — bandera de "baja confianza" para el panel del
+# usuario: se activa cuando el mínimo del rango (arriba) quedó
+# recortado en 0. Eso pasa exactamente cuando el margen de error (MAE
+# de backtest del método usado) es igual o mayor que la predicción
+# misma — el modelo se equivocó, en el pasado, al menos tanto como el
+# valor que está prediciendo ahora, así que ese número puntual no es
+# confiable por sí solo (típico de productos de demanda intermitente,
+# casi siempre cero con picos esporádicos — ningún método, de este
+# sistema o de cualquier otro, predice bien CUÁNDO cae el próximo
+# pico). Sin margen medido (producto sin backtest, o con error cero
+# medido) el mínimo no se recorta, así que tampoco se marca como baja
+# confianza: ausencia de margen no es lo mismo que mucho margen.
+def es_baja_confianza(prediccion, minimo):
+    return prediccion > 0 and minimo <= 0
+
 
 # ============================================================
 # PRONÓSTICO REAL DE LOS PRÓXIMOS N MESES (recursivo)
@@ -181,6 +237,12 @@ def generar_pronostico_futuro(
 
             pred_final_futuro = predicciones_por_metodo[metodo_usado]
 
+            # Rango alrededor de la predicción final, según qué tanto se
+            # equivocó en el backtest el método que se terminó usando
+            # para este producto (ver calcular_rango_prediccion).
+            margen = segmento.get(MAE_POR_METODO_COL[metodo_usado])
+            pred_min_futuro, pred_max_futuro = calcular_rango_prediccion(pred_final_futuro, margen)
+
             pronostico_futuro.append({
                 "producto_id": producto,
                 "nombre_producto": segmento.get("nombre_producto"),
@@ -191,6 +253,8 @@ def generar_pronostico_futuro(
                 "prediccion_regresion_lineal": round(pred_lr_futuro, 2),
                 "prediccion_baseline": round(pred_baseline_futuro, 2),
                 "prediccion_final": round(pred_final_futuro, 2),
+                "prediccion_min": round(pred_min_futuro, 2),
+                "prediccion_max": round(pred_max_futuro, 2),
                 "metodo_usado": metodo_usado,
             })
 
@@ -206,6 +270,9 @@ def generar_pronostico_futuro(
     if not pronostico_futuro_df.empty:
         for producto, grupo in pronostico_futuro_df.sort_values("horizonte").groupby("producto_id"):
             valores = grupo["prediccion_final"].tolist()
+            minimos = grupo["prediccion_min"].tolist()
+            maximos = grupo["prediccion_max"].tolist()
+            confianzas_bajas = [es_baja_confianza(v, mn) for v, mn in zip(valores, minimos)]
             pronostico_pivot.append({
                 "producto_id": producto,
                 "nombre_producto": grupo["nombre_producto"].iloc[0],
@@ -214,7 +281,17 @@ def generar_pronostico_futuro(
                 # final: fracciones de unidad ("45.63") no aportan nada
                 # al que tiene que decidir cuánto pedir.
                 "valores": [round(v) for v in valores],
+                # Rango [mínimo, máximo] de cada mes, mismo orden que
+                # "valores" — ver MARGEN_RANGO_MULTIPLICADOR más arriba.
+                "rangos": [[round(mn), round(mx)] for mn, mx in zip(minimos, maximos)],
+                # Baja confianza por mes (ver es_baja_confianza) — el total
+                # hereda la bandera de cualquiera de sus meses, porque ese
+                # total ya incluye un número poco confiable.
+                "confianzas_bajas": confianzas_bajas,
                 "total": round(sum(valores)),
+                "total_min": round(sum(minimos)),
+                "total_max": round(sum(maximos)),
+                "total_baja_confianza": any(confianzas_bajas),
             })
         pronostico_pivot.sort(key=lambda fila: fila["total"], reverse=True)
 

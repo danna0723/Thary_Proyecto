@@ -272,16 +272,22 @@ def reporte_demanda():
         escritor.writerow([])
 
     escritor.writerow(
-        ["Producto", "Nombre", "Categoría", *meses_filtrados, f"Total {total_meses} mes(es)"]
+        ["Producto", "Nombre", "Categoría", *meses_filtrados,
+         f"Total {total_meses} mes(es)", "Total mínimo", "Total máximo"]
     )
     for fila in resultado["pronostico_pivot"]:
         valores_filtrados = fila["valores"][i_desde:i_hasta + 1]
+        # rangos no existe en corridas guardadas antes de esta
+        # funcionalidad — en ese caso se usa el propio valor como rango.
+        rangos_filtrados = (fila.get("rangos") or [[v, v] for v in fila["valores"]])[i_desde:i_hasta + 1]
         escritor.writerow([
             fila["producto_id"],
             fila.get("nombre_producto") or "",
             fila.get("categoria") or "",
             *valores_filtrados,
             round(sum(valores_filtrados)),
+            round(sum(r[0] for r in rangos_filtrados)),
+            round(sum(r[1] for r in rangos_filtrados)),
         ])
 
     # "utf-8-sig" agrega el BOM que Excel necesita para mostrar bien los

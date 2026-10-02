@@ -14,7 +14,7 @@ import pandas as pd
 from sqlalchemy import text
 
 from app.services.db import get_engine
-from app.services.prediccion.pronostico_futuro import NOMBRES_MES_ES
+from app.services.prediccion.pronostico_futuro import NOMBRES_MES_ES, es_baja_confianza
 
 # Qué clave del dict que arma ejecutar_sistema() va en qué tabla hija.
 TABLAS_RESULTADO = {
@@ -173,12 +173,24 @@ def _armar_pronostico_pivot(registros_pronostico):
     for producto_id, filas in por_producto.items():
         filas_ordenadas = sorted(filas, key=lambda f: f["horizonte"])
         valores_crudos = [f["prediccion_final"] for f in filas_ordenadas]
+        # prediccion_min/prediccion_max no existen en corridas guardadas
+        # antes de agregar esta funcionalidad (columnas NULL en MySQL) —
+        # en ese caso se usa el propio valor puntual como rango (sin
+        # ancho), en vez de fallar al sumarlos.
+        minimos_crudos = [f.get("prediccion_min") if f.get("prediccion_min") is not None else f["prediccion_final"] for f in filas_ordenadas]
+        maximos_crudos = [f.get("prediccion_max") if f.get("prediccion_max") is not None else f["prediccion_final"] for f in filas_ordenadas]
+        confianzas_bajas = [es_baja_confianza(v, mn) for v, mn in zip(valores_crudos, minimos_crudos)]
         pivot.append({
             "producto_id": producto_id,
             "nombre_producto": filas_ordenadas[0]["nombre_producto"],
             "categoria": filas_ordenadas[0]["categoria"],
             "valores": [round(v) for v in valores_crudos],
+            "rangos": [[round(mn), round(mx)] for mn, mx in zip(minimos_crudos, maximos_crudos)],
+            "confianzas_bajas": confianzas_bajas,
             "total": round(sum(valores_crudos)),
+            "total_min": round(sum(minimos_crudos)),
+            "total_max": round(sum(maximos_crudos)),
+            "total_baja_confianza": any(confianzas_bajas),
         })
     pivot.sort(key=lambda f: f["total"], reverse=True)
     return pivot

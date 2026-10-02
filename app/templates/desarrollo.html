@@ -15,8 +15,21 @@
     <p class="text-muted small mb-0">
         Los tres métodos de pronóstico (Media Móvil, Regresión Lineal, XGBoost) se tratan como si fueran
         tres "expertos" distintos prediciendo lo mismo — acá se compara qué tan bien acertó cada uno, qué
-        tan cerca están entre sí, y con qué criterio se elige a cuál hacerle caso para cada producto.
+        tan cerca están entre sí, y con qué criterio se elige a cuál hacerle caso para cada producto. El
+        método campeón de cada producto se decide con un período de <strong>validación</strong>, distinto
+        del período de <strong>test</strong> con el que se reportan las métricas de abajo — así esas
+        métricas reflejan qué tan bien generaliza el sistema, no qué tan bien "adivina" el mismo período
+        que ya usó para elegir.
     </p>
+    {% if r.seleccion_metodo_con_fuga %}
+    <div class="alert alert-warning mb-0 mt-2">
+        <i class="fa fa-exclamation-triangle"></i> Este archivo tiene poco historial: no alcanzó para
+        separar un período de validación sin dejar el entrenamiento vacío. El método campeón de esta
+        corrida se eligió con el mismo período de test, así que las métricas de abajo son una cota
+        optimista, no una medida de generalización genuina — subí un archivo con más meses de historial
+        para que esto no pase.
+    </div>
+    {% endif %}
 </div>
 
 <div class="row">
@@ -346,12 +359,23 @@
                     <button type="button" class="toggle-decimales-btn activo" data-modo="decimales">Decimales</button>
                     <button type="button" class="toggle-decimales-btn" data-modo="enteros">Enteros</button>
                 </div>
+                <p class="text-muted small">
+                    "Punto de reorden" y "Punto de reorden (log-normal)" son dos formas de calcular lo
+                    mismo bajo dos supuestos distintos sobre cómo se distribuye la demanda durante el
+                    lead time. La primera (la que usa el sistema para decidir "¿Ordenar?" y la cantidad
+                    sugerida) asume una distribución normal, simétrica — matemáticamente permite demanda
+                    negativa si la variabilidad es alta. La log-normal respeta que la demanda nunca es
+                    negativa y captura mejor la cola derecha típica de productos de rotación baja o
+                    intermitente. Se muestra solo a modo de comparación; cuanto más se separan las dos
+                    columnas, más le importa a ese producto en particular qué distribución se asuma.
+                </p>
                 <div class="table-responsive">
                     <table class="table table-hover tabla-buscable" id="tabla-reabastecimiento">
                         <thead>
                             <tr>
                                 <th>Producto</th><th>ABC</th><th>Variabilidad</th><th>Método</th>
-                                <th>Punto de reorden</th><th>Inventario actual</th><th>EOQ</th><th>¿Ordenar?</th>
+                                <th>Punto de reorden</th><th>Punto de reorden (log-normal)</th>
+                                <th>Inventario actual</th><th>EOQ</th><th>¿Ordenar?</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -362,6 +386,11 @@
                                 <td>{{ fila.variabilidad }}</td>
                                 <td>{{ fila.metodo_pronostico }}</td>
                                 <td><span class="valor-num" data-valor="{{ fila.punto_reorden }}">{{ fila.punto_reorden }}</span></td>
+                                <td>
+                                    {% if fila.punto_reorden_lognormal is not none %}
+                                    <span class="valor-num" data-valor="{{ fila.punto_reorden_lognormal }}">{{ fila.punto_reorden_lognormal }}</span>
+                                    {% else %}—{% endif %}
+                                </td>
                                 <td>
                                     {% if fila.inventario_actual is not none %}
                                     <span class="valor-num" data-valor="{{ fila.inventario_actual }}">{{ fila.inventario_actual }}</span>

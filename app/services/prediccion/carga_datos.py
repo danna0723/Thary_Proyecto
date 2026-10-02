@@ -203,13 +203,25 @@ def agregar_mensual(df):
         .rename(columns={"mes_periodo": "fecha"})
     )
 
-    productos = df_mensual["producto_id"].unique()
-    meses_completos = pd.date_range(df_mensual["fecha"].min(), df_mensual["fecha"].max(), freq="MS")
-
-    calendario_producto_mes = (
-        pd.MultiIndex.from_product([productos, meses_completos], names=["producto_id", "fecha"])
-        .to_frame(index=False)
+    # EXTENSIÓN PROPIA — el calendario a completar es el de CADA producto
+    # (su propio primer y último mes con datos), no uno solo para todo el
+    # archivo. Antes se usaba un único rango global (el mínimo y máximo de
+    # fecha de TODO el archivo) igual para todos los productos: un
+    # producto que solo existió unos meses recibía ceros también en los
+    # meses de los demás productos en los que ese producto ni siquiera
+    # estaba en el catálogo — ceros "artificiales" (no existía todavía),
+    # indistinguibles de un cero real (existía y no se vendió nada). Eso
+    # contamina media_producto/desviacion_producto y los rezagos de ese
+    # producto con historia inventada. Con un catálogo donde todos los
+    # productos coexisten durante todo el período (como el caso de
+    # estudio, una farmacia con su catálogo fijo), el resultado es
+    # idéntico al del rango global, porque el rango propio de cada
+    # producto ya coincide con el del archivo completo.
+    rango_por_producto = df_mensual.groupby("producto_id")["fecha"].agg(["min", "max"]).reset_index()
+    rango_por_producto["fecha"] = rango_por_producto.apply(
+        lambda fila: pd.date_range(fila["min"], fila["max"], freq="MS"), axis=1
     )
+    calendario_producto_mes = rango_por_producto[["producto_id", "fecha"]].explode("fecha", ignore_index=True)
 
     df_mensual = calendario_producto_mes.merge(df_mensual, on=["producto_id", "fecha"], how="left")
     df_mensual["demanda"] = df_mensual["demanda"].fillna(0)

@@ -152,6 +152,9 @@ TABLAS_DDL = [
         demanda_acumulada_pct DOUBLE,
         categoria_abc VARCHAR(5),
         metodo_campeon VARCHAR(40),
+        mae_media_movil DOUBLE,
+        mae_regresion_lineal DOUBLE,
+        mae_xgboost DOUBLE,
         proveedor_principal VARCHAR(160),
         proveedor_alterno VARCHAR(160),
         FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
@@ -202,6 +205,8 @@ TABLAS_DDL = [
         prediccion_regresion_lineal DOUBLE,
         prediccion_baseline DOUBLE,
         prediccion_final DOUBLE,
+        prediccion_min DOUBLE,
+        prediccion_max DOUBLE,
         metodo_usado VARCHAR(40),
         FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -304,6 +309,13 @@ COLUMNAS_NUEVAS = [
     ("reorder", "margen_unitario", "DOUBLE"),
     ("reorder", "costo_ruptura_estimado", "DOUBLE"),
     ("metricas_modelos", "mediana_error", "DOUBLE"),
+    ("pronostico_futuro", "prediccion_min", "DOUBLE"),
+    ("pronostico_futuro", "prediccion_max", "DOUBLE"),
+    ("segmentacion", "mae_media_movil", "DOUBLE"),
+    ("segmentacion", "mae_regresion_lineal", "DOUBLE"),
+    ("segmentacion", "mae_xgboost", "DOUBLE"),
+    ("reorder", "stock_seguridad_lognormal", "DOUBLE"),
+    ("reorder", "punto_reorden_lognormal", "DOUBLE"),
 ]
 
 

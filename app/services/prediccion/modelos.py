@@ -186,23 +186,59 @@ def seleccionar_prediccion_final(tabla):
 # diferencia de error no es estadísticamente significativa (p >=
 # NIVEL_SIGNIFICANCIA_DM), se prefiere "Media móvil" en vez del que
 # ganó por una diferencia que podría ser puro ruido.
+def calcular_errores_por_producto(resultados_prediccion):
+    """
+    MAE de cada uno de los tres métodos, por producto, sobre la tabla
+    recibida (una fila por producto-mes, con "demanda" y las tres
+    columnas de predicción). No decide ningún campeón — es el cálculo
+    puro, reutilizado tanto por elegir_campeon_por_producto (sobre un
+    período de VALIDACIÓN, ver más abajo) como por quien necesite saber
+    qué tanto se equivocó cada método sobre el período de TEST final
+    (construir_tabla_predicciones), que son dos tablas distintas a
+    propósito — ver el comentario de elegir_campeon_por_producto.
+
+    Vectorizado (antes esto usaba groupby().apply(), ~15x más lento en
+    un catálogo de 500 productos).
+    """
+    errores_por_metodo = pd.DataFrame({
+        metodo: (resultados_prediccion["demanda"] - resultados_prediccion[columna]).abs()
+        for metodo, columna in COLUMNA_PREDICCION_POR_METODO.items()
+    })
+    return errores_por_metodo.groupby(resultados_prediccion["producto_id"]).mean()
+
+
+# EXTENSIÓN PROPIA (corrección de fuga de datos en la selección de
+# modelo) — esta función tiene que recibir una tabla de VALIDACIÓN,
+# nunca la misma tabla de TEST con la que después se reportan
+# mape_final/wape_final (ver sistema_prediccion.py). Antes, campeón y
+# evaluación se calculaban sobre la MISMA tabla de test: el campeón de
+# cada producto era, por definición, "el método que menos se equivocó
+# en este mismo período que ahora se usa para medir qué tan bien
+# funciona el sistema" — eso hacía que el sistema combinado casi no
+# pudiera perder contra Media Móvil en el test, no porque combinar
+# modelos funcione, sino porque la elección ya conocía la respuesta de
+# ese mismo período. Separar ambos períodos (validación para elegir,
+# test — nunca visto por la elección — para reportar) es la forma
+# estándar de evitar esto en selección de modelos.
 def elegir_campeon_por_producto(resultados_prediccion):
     """
-    Devuelve una Series indexada por producto_id con el nombre del
-    método ("Media móvil"/"Regresión Lineal"/"XGBoost") elegido para ese
-    producto: el de menor MAE en los meses de backtest, siempre que esa
-    diferencia contra el segundo mejor sea estadísticamente significativa
-    (prueba de Diebold-Mariano con corrección de Harvey-Leybourne-Newbold,
-    ver comentario arriba); si no lo es, se usa "Media móvil" por ser el
-    método más simple y robusto.
+    Devuelve (campeon, errores_por_producto):
+      - campeon: Series indexada por producto_id con el nombre del
+        método ("Media móvil"/"Regresión Lineal"/"XGBoost") elegido para
+        ese producto: el de menor MAE en los meses recibidos, siempre
+        que esa diferencia contra el segundo mejor sea estadísticamente
+        significativa (prueba de Diebold-Mariano con corrección de
+        Harvey-Leybourne-Newbold, ver comentario arriba); si no lo es,
+        se usa "Media móvil" por ser el método más simple y robusto.
+      - errores_por_producto: el MAE de cada método sobre ESTA MISMA
+        tabla (mismo cálculo que calcular_errores_por_producto, pero
+        acá se necesita además el detalle fila por fila para la prueba
+        de Diebold-Mariano, así que no se reutiliza esa función).
 
-    El cálculo del MAE por producto sigue vectorizado (ver comentario
-    original: antes esto usaba groupby().apply(), ~15x más lento en un
-    catálogo de 500 productos) — la comparación estadística se arma con
-    la misma lógica: primero se identifica el mejor y segundo mejor
-    método por producto (np.argsort sobre la tabla de MAE), y recién
-    después se calcula la prueba, también vectorizada sobre todos los
-    productos a la vez.
+    La comparación estadística se arma así: primero se identifica el
+    mejor y segundo mejor método por producto (np.argsort sobre la
+    tabla de MAE), y recién después se calcula la prueba, vectorizada
+    sobre todos los productos a la vez.
     """
     errores_por_metodo = pd.DataFrame({
         metodo: (resultados_prediccion["demanda"] - resultados_prediccion[columna]).abs()
@@ -258,25 +294,38 @@ def elegir_campeon_por_producto(resultados_prediccion):
 
     campeon = mejor_metodo.copy()
     campeon[~significativo] = "Media móvil"
-    return campeon
+    return campeon, errores_por_producto
 
 
-def construir_tabla_predicciones(test_df, pred_baseline_3, pred_lr, pred_xgb):
+def construir_tabla_predicciones(test_df, pred_baseline_3, pred_lr, pred_xgb, campeon):
     """
-    Arma la tabla de predicciones de backtest (últimos 3 meses reales)
-    con las tres predicciones lado a lado, elige el método campeón por
-    producto (elegir_campeon_por_producto) y calcula el MAPE/WAPE
-    globales de esa predicción combinada.
+    Arma la tabla de predicciones sobre el período de TEST final (nunca
+    el de validación) con las tres predicciones lado a lado, aplica el
+    método campeón por producto YA DECIDIDO de antemano (ver
+    elegir_campeon_por_producto — tiene que haberse llamado con una
+    tabla de VALIDACIÓN distinta a "test_df", nunca con esta misma) y
+    calcula el MAPE/WAPE globales de esa predicción combinada.
 
-    Devuelve (resultados_prediccion, mape_final, wape_final, metodo_campeon).
+    "campeon" se recibe como parámetro, en vez de calcularse acá mismo,
+    a propósito: si esta función eligiera el campeón con la misma tabla
+    que usa para reportar mape_final/wape_final, esos números dejarían
+    de medir generalización real (ver el comentario largo junto a
+    elegir_campeon_por_producto).
+
+    Devuelve (resultados_prediccion, mape_final, wape_final, metodo_campeon,
+    errores_por_producto) — este último es el MAE de backtest de cada
+    método sobre el propio período de test (válido para el rango de
+    pronóstico futuro: a diferencia del campeón, no participó en
+    ninguna decisión, así que no hay fuga en reportarlo).
     """
     resultados_prediccion = test_df[["fecha", "producto_id", "demanda", "categoria_abc", "variabilidad"]].copy()
     resultados_prediccion["prediccion_media_movil"] = pred_baseline_3
     resultados_prediccion["prediccion_regresion_lineal"] = pred_lr
     resultados_prediccion["prediccion_xgboost"] = pred_xgb
 
-    metodo_campeon = elegir_campeon_por_producto(resultados_prediccion)
-    resultados_prediccion["metodo_usado"] = resultados_prediccion["producto_id"].map(metodo_campeon)
+    metodo_campeon = campeon
+    errores_por_producto = calcular_errores_por_producto(resultados_prediccion)
+    resultados_prediccion["metodo_usado"] = resultados_prediccion["producto_id"].map(metodo_campeon).fillna("Media móvil")
     resultados_prediccion["prediccion_final"] = seleccionar_prediccion_final(resultados_prediccion)
     resultados_prediccion["error_final"] = resultados_prediccion["prediccion_final"] - resultados_prediccion["demanda"]
 
@@ -294,4 +343,4 @@ def construir_tabla_predicciones(test_df, pred_baseline_3, pred_lr, pred_xgb):
         resultados_prediccion["prediccion_final"].values
     )
 
-    return resultados_prediccion, mape_final, wape_final, metodo_campeon
+    return resultados_prediccion, mape_final, wape_final, metodo_campeon, errores_por_producto

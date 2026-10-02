@@ -23,6 +23,13 @@ distinta de la fórmula:
   C300 — EOQ limitado por el presupuesto de capital de trabajo (el
          resultado final queda por debajo del EOQ "ideal"), y el camino
          cuando NO hay dato de inventario_actual.
+  D400 — EXTENSIÓN PROPIA (corrección): sigma_demanda tiene que ser el
+         MAE de backtest del método campeón (ya calculado en
+         producto_comportamiento), no el desvío de los pocos valores
+         pronosticados entre sí — ver el comentario largo en
+         reposicion.py. Caso real del catálogo clínico (OXACILINA): esos
+         valores pronosticados tienen muy poca dispersión aunque el
+         modelo se equivoque bastante en el backtest.
 """
 
 import math
@@ -148,6 +155,31 @@ class TestA100StockDeSeguridadYPuntoDeReorden:
         punto_reorden_esperado = 100 * 0.5 + fila(resultado, "A100")["stock_seguridad"]
         assert fila(resultado, "A100")["punto_reorden"] == pytest.approx(punto_reorden_esperado, abs=0.01)
 
+    def test_punto_de_reorden_lognormal(self, resultado):
+        """
+        Mismo caso (media_lt=50, desvío_lt=8.164966*√0.5=5.773503), pero
+        asumiendo que la demanda del lead time es log-normal en vez de
+        normal (moment matching, ver comentario en reposicion.py):
+
+          cv_lt = 5.773503 / 50 = 0.115470
+          sigma_log = √ln(1 + cv_lt²) = √ln(1.013333) = 0.115088
+          mu_log = ln(50) - sigma_log²/2 = 3.912023 - 0.006623 = 3.905400
+          punto_reorden_lognormal = exp(mu_log + 1.65 × sigma_log)
+                                   = exp(4.095296) ≈ 60.006
+        """
+        desvio_esperado = math.sqrt(((90 - 100) ** 2 + (100 - 100) ** 2 + (110 - 100) ** 2) / 3)
+        media_lt = 100 * 0.5
+        desviacion_lt = desvio_esperado * math.sqrt(0.5)
+        cv_lt = desviacion_lt / media_lt
+        sigma_log = math.sqrt(math.log(1 + cv_lt ** 2))
+        mu_log = math.log(media_lt) - (sigma_log ** 2) / 2
+        punto_reorden_lognormal_esperado = math.exp(mu_log + 1.65 * sigma_log)
+        assert fila(resultado, "A100")["punto_reorden_lognormal"] == pytest.approx(punto_reorden_lognormal_esperado, abs=0.01)
+        # El supuesto log-normal da, para este producto, un punto de
+        # reorden MÁS ALTO que el normal — justamente porque captura la
+        # cola derecha que la normal simétrica no ve.
+        assert fila(resultado, "A100")["punto_reorden_lognormal"] > fila(resultado, "A100")["punto_reorden"]
+
     def test_sin_datos_de_costo_no_hay_eoq_y_cae_al_metodo_alternativo(self, resultado):
         """Sin costo_unitario/costo_pedido/porcentaje_costo_mantenimiento
         en el CSV, el EOQ no se puede calcular — la cantidad sugerida
@@ -210,6 +242,16 @@ class TestB200EOQSinLimiteDePresupuesto:
         # 200 unidades en stock × $2.000 costo unitario
         assert fila(resultado, "B200")["valor_inventario_actual"] == pytest.approx(400_000.0)
 
+    def test_punto_de_reorden_lognormal_sin_variabilidad_coincide_con_el_normal(self, resultado):
+        """Pronóstico constante (100,100,100) -> desviación 0 -> sin
+        variabilidad no hace falta stock de seguridad bajo NINGÚN
+        supuesto de distribución — log-normal y normal tienen que dar
+        exactamente el mismo punto de reorden (100 × 1.0 mes = 100)."""
+        f = fila(resultado, "B200")
+        assert f["punto_reorden_lognormal"] == pytest.approx(100.0)
+        assert f["punto_reorden_lognormal"] == pytest.approx(f["punto_reorden"])
+        assert f["stock_seguridad_lognormal"] == pytest.approx(0.0)
+
     def test_no_hace_falta_pedir_todavia(self, resultado):
         f = fila(resultado, "B200")
         assert f["ordenar"] == "NO"  # inventario (200) > punto de reorden (100)
@@ -270,3 +312,70 @@ class TestC300EOQLimitadoPorElPresupuesto:
         f = fila(resultado, "C300")
         assert f["margen_unitario"] is None
         assert f["costo_ruptura_estimado"] is None
+
+
+class TestD400SigmaUsaElMAEDeBacktestNoLaDispersionDelPronostico:
+    """
+    Caso real del catálogo clínico (OXACILINA): 3 meses pronosticados
+    con muy poca dispersión entre sí ([16.33, 5.44, 7.26], desvío ≈
+    4.76) aunque el método campeón (Media Móvil) se haya equivocado en
+    promedio 29.33 unidades con este producto en el backtest — mucho
+    más. Con "mae_media_movil" presente en producto_comportamiento,
+    sigma_demanda tiene que ser 29.33 (el MAE), no 4.76 (el desvío de
+    esos 3 números) — antes de la corrección, era este último.
+
+    stock_seguridad = Z × MAE × √L = 1.65 × 29.33 × √0.5 ≈ 34.21
+    (muy por encima de lo que daría el desvío de los pronósticos:
+    1.65 × 4.76 × √0.5 ≈ 5.55)
+    """
+
+    @pytest.fixture
+    def resultado(self):
+        df_model = pd.DataFrame({"producto_id": ["D400"]})
+        df_mensual = pd.DataFrame([{
+            "producto_id": "D400", "fecha": FECHA_REFERENCIA,
+            "lead_time_semanas": np.nan,  # sin dato -> lead time default 0.5 meses
+            "costo_pedido": np.nan, "porcentaje_costo_mantenimiento": np.nan,
+            "costo_unitario": np.nan, "inventario": 100,
+        }])
+        producto_comportamiento = pd.DataFrame([{
+            "producto_id": "D400", "nombre_producto": "Producto D", "categoria": "TEST",
+            "proveedor_principal": None, "proveedor_alterno": None,
+            "categoria_abc": "C", "variabilidad": "Alta", "metodo_campeon": "Media móvil",
+            "mae_media_movil": 29.33, "mae_regresion_lineal": 38.36, "mae_xgboost": 16.64,
+        }])
+        pronostico_futuro_df = pd.DataFrame([
+            {"producto_id": "D400", "prediccion_final": 16.33},
+            {"producto_id": "D400", "prediccion_final": 5.44},
+            {"producto_id": "D400", "prediccion_final": 7.26},
+        ])
+        reorder_df, presupuesto_usado, presupuesto_por_producto = calcular_tabla_reorden(
+            df_model, df_mensual, producto_comportamiento, pronostico_futuro_df,
+            presupuesto_capital_trabajo=6_000_000,
+        )
+        return reorder_df.set_index("producto_id"), presupuesto_usado, presupuesto_por_producto
+
+    def test_stock_de_seguridad_usa_el_mae_del_metodo_campeon(self, resultado):
+        desvio_pronosticos = np.std([16.33, 5.44, 7.26])
+        stock_seguridad_con_mae = 1.65 * 29.33 * math.sqrt(0.5)
+        stock_seguridad_con_desvio_viejo = 1.65 * desvio_pronosticos * math.sqrt(0.5)
+
+        f = fila(resultado, "D400")
+        assert f["stock_seguridad"] == pytest.approx(stock_seguridad_con_mae, abs=0.01)
+        # El criterio viejo (desvío de los pronósticos) habría dado un
+        # número bastante menor — confirma que de verdad cambió de uno
+        # a otro, no que ambos coincidan por casualidad en este caso.
+        assert f["stock_seguridad"] > stock_seguridad_con_desvio_viejo * 3
+
+    def test_punto_de_reorden_lognormal_tambien_usa_el_mae(self, resultado):
+        """La versión log-normal reutiliza la misma sigma_demanda ya
+        corregida — no tiene su propio cálculo aparte."""
+        media_lt = np.mean([16.33, 5.44, 7.26]) * 0.5
+        desviacion_lt = 29.33 * math.sqrt(0.5)
+        cv_lt = desviacion_lt / media_lt
+        sigma_log = math.sqrt(math.log(1 + cv_lt ** 2))
+        mu_log = math.log(media_lt) - (sigma_log ** 2) / 2
+        punto_reorden_lognormal_esperado = math.exp(mu_log + 1.65 * sigma_log)
+
+        f = fila(resultado, "D400")
+        assert f["punto_reorden_lognormal"] == pytest.approx(punto_reorden_lognormal_esperado, abs=0.01)
