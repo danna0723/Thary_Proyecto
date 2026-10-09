@@ -10,7 +10,7 @@ NOMBRES_MES_ES = {
 
 HORIZONTE_MESES_DEFAULT = 3
 HORIZONTE_MESES_MIN = 1
-HORIZONTE_MESES_MAX = 24
+HORIZONTE_MESES_MAX = 12
 
 # EXTENSIÓN PROPIA — en vez de mostrar solo un número cerrado, el
 # pronóstico futuro también reporta un rango [mínimo, máximo] alrededor
