@@ -222,6 +222,22 @@ def calcular_errores_por_producto(resultados_prediccion):
 # estándar de evitar esto en selección de modelos.
 def elegir_campeon_por_producto(resultados_prediccion):
     """
+    Devuelve (campeon, errores_por_producto). Ver
+    diagnosticar_campeon_por_producto para el detalle de la prueba.
+    """
+    campeon, errores_por_producto, _ = diagnosticar_campeon_por_producto(resultados_prediccion)
+    return campeon, errores_por_producto
+
+
+def diagnosticar_campeon_por_producto(resultados_prediccion):
+    """
+    Devuelve (campeon, errores_por_producto, diagnostico). El diagnostico
+    es un DataFrame por producto con el p-valor de Diebold-Mariano (HLN) de
+    mejor contra segundo mejor, para documentar la selección (ver
+    desarrollo / tesis: cuántos productos quedan por defecto en Media móvil).
+    Columnas: metodo_mejor, metodo_segundo, n_meses, d_media, p_valor,
+    significativo, metodo_campeon.
+
     Devuelve (campeon, errores_por_producto):
       - campeon: Series indexada por producto_id con el nombre del
         método ("Media móvil"/"Regresión Lineal"/"XGBoost") elegido para
@@ -294,7 +310,17 @@ def elegir_campeon_por_producto(resultados_prediccion):
 
     campeon = mejor_metodo.copy()
     campeon[~significativo] = "Media móvil"
-    return campeon, errores_por_producto
+
+    diagnostico = pd.DataFrame({
+        "metodo_mejor": mejor_metodo,
+        "metodo_segundo": segundo_metodo,
+        "n_meses": stats_diferencia["n"],
+        "d_media": stats_diferencia["d_media"],
+        "p_valor": p_valor,
+        "significativo": significativo,
+        "metodo_campeon": campeon,
+    })
+    return campeon, errores_por_producto, diagnostico
 
 
 def construir_tabla_predicciones(test_df, pred_baseline_3, pred_lr, pred_xgb, campeon):

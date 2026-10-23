@@ -10,7 +10,7 @@ from werkzeug.utils import secure_filename
 
 from app.services.sistema_prediccion import ejecutar_sistema
 from app.services.auth import admin_required, login_required, buscar_usuario
-from app.services.pedidos import cargar_pedidos, registrar_pedido, quitar_pedido
+from app.services.pedidos import cargar_movimientos, cargar_pedidos, registrar_pedido, quitar_pedido
 from app.services.perfil_empresa import cargar_nombre_empresa
 from app.services.resultados import guardar_resultado, cargar_ultima_corrida
 from app.services.actividad import registrar as registrar_actividad, listar_propia, listar_empresa
@@ -230,7 +230,15 @@ def dashboard():
     if resultado is None:
         return pantalla_sin_datos()
 
-    return render_template("dashboard.html", r=resultado)
+    # Productos del archivo que no entraron al pronóstico (historial menor a
+    # 4 meses): se listan para que el usuario sepa que no tienen predicción.
+    con_pronostico = {p["producto_id"] for p in resultado["pronostico_pivot"]}
+    productos_excluidos = [
+        s for s in resultado.get("segmentacion", [])
+        if s["producto_id"] not in con_pronostico
+    ]
+
+    return render_template("dashboard.html", r=resultado, productos_excluidos=productos_excluidos)
 
 
 @main_bp.route("/reporte-demanda", methods=["GET"])
@@ -401,7 +409,11 @@ def pedido():
     pendientes.sort(key=lambda f: f.get("costo_estimado_pedido") or 0, reverse=True)
     confirmados.sort(key=lambda f: f.get("fecha_hora", ""), reverse=True)
 
-    return render_template("pedido.html", r=resultado, pendientes=pendientes, confirmados=confirmados)
+    # Historial completo de confirmaciones y deshacer, del más reciente al más
+    # antiguo (ver pedidos.py: pedidos guarda el estado vigente, esto el historial).
+    movimientos = list(reversed(cargar_movimientos(session["empresa_id"])))
+
+    return render_template("pedido.html", r=resultado, pendientes=pendientes, confirmados=confirmados, movimientos=movimientos)
 
 
 @main_bp.route("/pedido/confirmar", methods=["POST"])

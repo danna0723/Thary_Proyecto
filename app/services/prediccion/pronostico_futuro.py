@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 
 from app.services.prediccion.utils import nan_a_none
+from app.services.prediccion.features import incorporar_estadisticas_producto
+from app.services.prediccion.modelos import evaluar_modelo
 
 NOMBRES_MES_ES = {
     1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
@@ -67,6 +69,43 @@ def calcular_rango_prediccion(prediccion, margen):
 # confianza: ausencia de margen no es lo mismo que mucho margen.
 def es_baja_confianza(prediccion, minimo):
     return prediccion > 0 and minimo <= 0
+
+
+# EXTENSIÓN PROPIA (corrección D — estados del error histórico) — el
+# margen del rango sale del MAE de backtest, y ese MAE puede estar en tres
+# situaciones distintas que la interfaz no debe confundir:
+#   - "medido": hubo backtest y el método tuvo error; el margen es ese error.
+#   - "medido en cero": hubo backtest y el error fue exactamente 0. Con muy
+#     pocos meses de prueba, esto suele significar muestra insuficiente, no
+#     un modelo perfecto.
+#   - "no disponible": el producto no tiene backtest (historia corta). No hay
+#     margen medido y NO se puede presentar como un rango estrecho ni como
+#     confiable.
+ESTADO_ERROR_MEDIDO = "medido"
+ESTADO_ERROR_CERO = "medido en cero"
+ESTADO_ERROR_NO_DISPONIBLE = "no disponible"
+
+
+def estado_error_historico(margen):
+    if margen is None or pd.isna(margen):
+        return ESTADO_ERROR_NO_DISPONIBLE
+    if margen == 0:
+        return ESTADO_ERROR_CERO
+    return ESTADO_ERROR_MEDIDO
+
+
+def estado_error_del_producto(estados):
+    """Resumen de los meses de un producto: si algún mes no tiene error
+    medido, el producto entero queda como "no disponible" (no se puede
+    decir que está bien medido); si todos están en cero, "medido en cero";
+    en otro caso, "medido". Sin meses, None."""
+    if not estados:
+        return None
+    if ESTADO_ERROR_NO_DISPONIBLE in estados:
+        return ESTADO_ERROR_NO_DISPONIBLE
+    if all(e == ESTADO_ERROR_CERO for e in estados):
+        return ESTADO_ERROR_CERO
+    return ESTADO_ERROR_MEDIDO
 
 
 # ============================================================
@@ -192,15 +231,19 @@ def generar_pronostico_futuro(
             if "precio" in feature_cols:
                 fila_features["precio"] = ultima_fila.get("precio", 0)
 
-            if "inventario" in feature_cols:
-                fila_features["inventario"] = ultima_fila.get("inventario", 0)
-                if "inventario_lag_1" in feature_cols:
-                    fila_features["inventario_lag_1"] = ultima_fila.get("inventario", 0)
+            # Solo inventario_lag_1 (inventario del mes anterior); el del mismo
+            # mes no es variable (ver features.py). Para horizontes > 1 se usa el
+            # último inventario conocido: aproximación, no un valor pronosticado.
+            if "inventario_lag_1" in feature_cols:
+                fila_features["inventario_lag_1"] = ultima_fila.get("inventario", 0)
 
             filas_features.append(fila_features)
             metadatos.append((producto, media_movil_3))
 
-        X_futuro_lote = pd.DataFrame(filas_features)[feature_cols]
+        # Mismo tratamiento de faltantes que en el entrenamiento (features.py
+        # rellena NaN con 0): un producto sin dato de inventario en su último
+        # mes no debe romper la predicción de los modelos que usan esa variable.
+        X_futuro_lote = pd.DataFrame(filas_features)[feature_cols].fillna(0)
         preds_xgb_lote = np.maximum(np.expm1(model.predict(X_futuro_lote)), 0)
         preds_lr_lote = np.maximum(modelo_lr.predict(X_futuro_lote[features_lr]), 0)
 
@@ -255,6 +298,7 @@ def generar_pronostico_futuro(
                 "prediccion_final": round(pred_final_futuro, 2),
                 "prediccion_min": round(pred_min_futuro, 2),
                 "prediccion_max": round(pred_max_futuro, 2),
+                "estado_error": estado_error_historico(margen),
                 "metodo_usado": metodo_usado,
             })
 
@@ -273,10 +317,20 @@ def generar_pronostico_futuro(
             minimos = grupo["prediccion_min"].tolist()
             maximos = grupo["prediccion_max"].tolist()
             confianzas_bajas = [es_baja_confianza(v, mn) for v, mn in zip(valores, minimos)]
+            estados_error = grupo["estado_error"].tolist()
             pronostico_pivot.append({
                 "producto_id": producto,
                 "nombre_producto": grupo["nombre_producto"].iloc[0],
                 "categoria": grupo["categoria"].iloc[0],
+                # Estado del error histórico por mes (ver estado_error_historico)
+                # y resumen del producto (ver estado_error_del_producto).
+                "estados_error": estados_error,
+                "estado_error": estado_error_del_producto(estados_error),
+                # D3: sin margen medido el rango no tiene ancho, pero eso NO es
+                # certeza: se marca aparte para que la interfaz no lo muestre
+                # como confiable (es_baja_confianza no cambia su definición).
+                "sin_margen_por_mes": [e == ESTADO_ERROR_NO_DISPONIBLE for e in estados_error],
+                "sin_margen": ESTADO_ERROR_NO_DISPONIBLE in estados_error,
                 # Redondeado a unidades enteras para la vista del usuario
                 # final: fracciones de unidad ("45.63") no aportan nada
                 # al que tiene que decidir cuánto pedir.
@@ -296,3 +350,81 @@ def generar_pronostico_futuro(
         pronostico_pivot.sort(key=lambda fila: fila["total"], reverse=True)
 
     return pronostico_futuro_df, pronostico_pivot, meses_pronosticados, meses_pronosticados_legibles
+
+
+# ============================================================
+# EVALUACIÓN DEL PRONÓSTICO RECURSIVO POR HORIZONTE (corrección A.4)
+# ============================================================
+# EXTENSIÓN PROPIA — la evaluación de backtest de modelos.py mide cada
+# mes con la demanda REAL del mes anterior (un paso). El pronóstico que
+# recibe el usuario es distinto: se genera desde el último mes conocido y
+# cada mes se alimenta con la predicción del anterior. Esta función mide
+# ese mismo procedimiento: pronostica desde UN origen con la historia
+# hasta ese origen, y compara contra la demanda real de los meses que
+# siguen, separando el error por horizonte (mes 1, mes 2, ...).
+#
+# No reutiliza la tabla de backtest: esa mezcla meses de origen distintos
+# y no reproduce lo que pasa al pronosticar varios meses seguidos.
+def evaluar_pronostico_recursivo(
+    df_mensual, producto_comportamiento, model, feature_cols, modelo_lr, features_lr,
+    origen, horizonte_meses,
+):
+    """
+    origen: último mes con historia que el pronóstico puede usar (todo lo
+    posterior se trata como desconocido, incluidas las estadísticas por
+    producto, que se recalculan solo con la historia hasta ese mes).
+
+    Devuelve (comparacion, productos_sin_pronostico):
+      - comparacion: una fila por (producto, horizonte) con la demanda real
+        y las predicciones del sistema final y de la media móvil recursiva.
+      - productos_sin_pronostico: cuántos productos con demanda real en el
+        período no se pudieron pronosticar (historia menor a 3 meses, ver
+        generar_pronostico_futuro). Se reporta para que no se cuenten en
+        silencio como si no existieran.
+    """
+    historia = df_mensual[df_mensual["fecha"] <= origen]
+    historia = incorporar_estadisticas_producto(historia, historia, fecha_corte=None)
+
+    pronostico, _, _, _ = generar_pronostico_futuro(
+        historia, producto_comportamiento, model, feature_cols, modelo_lr, features_lr,
+        horizonte_meses=horizonte_meses,
+    )
+
+    fin = origen + pd.DateOffset(months=horizonte_meses)
+    real = df_mensual[(df_mensual["fecha"] > origen) & (df_mensual["fecha"] <= fin)].copy()
+    real["mes_pronosticado"] = real["fecha"].dt.strftime("%Y-%m")
+
+    productos_reales = set(real["producto_id"])
+    productos_pronosticados = set(pronostico["producto_id"]) if not pronostico.empty else set()
+    productos_sin_pronostico = len(productos_reales - productos_pronosticados)
+
+    if pronostico.empty:
+        return pd.DataFrame(columns=["producto_id", "horizonte", "demanda", "prediccion_final", "prediccion_baseline"]), productos_sin_pronostico
+
+    comparacion = pronostico.merge(
+        real[["producto_id", "mes_pronosticado", "demanda"]],
+        on=["producto_id", "mes_pronosticado"], how="inner",
+    )
+    return comparacion[["producto_id", "horizonte", "demanda", "prediccion_final", "prediccion_baseline"]], productos_sin_pronostico
+
+
+def resumen_pronostico_por_horizonte(comparacion):
+    """
+    Una fila por horizonte con el error del sistema final y de la media
+    móvil recursiva (MAE y WAPE), sobre los productos comparados en ese
+    horizonte. Lista de dicts lista para guardar o mostrar.
+    """
+    filas = []
+    for horizonte, grupo in comparacion.groupby("horizonte"):
+        real = grupo["demanda"].values
+        sistema = evaluar_modelo(real, grupo["prediccion_final"].values, "Sistema final")
+        baseline = evaluar_modelo(real, grupo["prediccion_baseline"].values, "Media móvil")
+        filas.append({
+            "horizonte": int(horizonte),
+            "productos": int(grupo["producto_id"].nunique()),
+            "mae_sistema": round(float(sistema["MAE"]), 2),
+            "wape_sistema": None if pd.isna(sistema["WAPE (%)"]) else round(float(sistema["WAPE (%)"]), 2),
+            "mae_media_movil": round(float(baseline["MAE"]), 2),
+            "wape_media_movil": None if pd.isna(baseline["WAPE (%)"]) else round(float(baseline["WAPE (%)"]), 2),
+        })
+    return filas

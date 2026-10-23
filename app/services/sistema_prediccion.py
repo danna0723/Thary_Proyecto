@@ -5,7 +5,7 @@ import pandas as pd
 
 from app.services.prediccion.carga_datos import cargar_y_limpiar, agregar_mensual
 from app.services.prediccion.segmentacion import calcular_comportamiento_producto
-from app.services.prediccion.features import construir_features
+from app.services.prediccion.features import construir_features, incorporar_estadisticas_producto
 from app.services.prediccion.regresion_lineal import entrenar_regresion_lineal
 from app.services.prediccion.modelos import (
     elegir_campeon_por_producto,
@@ -17,6 +17,8 @@ from app.services.prediccion.modelos import (
 )
 from app.services.prediccion.pronostico_futuro import (
     generar_pronostico_futuro,
+    evaluar_pronostico_recursivo,
+    resumen_pronostico_por_horizonte,
     HORIZONTE_MESES_DEFAULT,
     HORIZONTE_MESES_MIN,
     HORIZONTE_MESES_MAX,
@@ -127,6 +129,17 @@ def ejecutar_sistema(
         meses_train = meses_antes_del_test
         seleccion_metodo_con_fuga = True
 
+    if len(meses_train) == 0:
+        raise ValueError("No quedó historial suficiente para entrenar el modelo. Sube un archivo con más meses de datos.")
+
+    # EXTENSIÓN PROPIA (corrección de fuga temporal) — media y desvío por
+    # producto calculados SOLO con los meses de entrenamiento (hasta el
+    # último mes de meses_train). Validación y test usan esas mismas
+    # estadísticas, fijas, sin haber visto sus propios meses: igual que
+    # en producción, donde el modelo se entrena con lo que ya ocurrió y
+    # se evalúa con lo que viene después. Ver features.py.
+    df_model = incorporar_estadisticas_producto(df_model, df_mensual, fecha_corte=meses_train[-1])
+
     train_df = df_model[df_model["fecha"].isin(meses_train)].copy()
     val_df = df_model[df_model["fecha"].isin(meses_val)].copy()
     test_df = df_model[df_model["fecha"].isin(meses_test)].copy()
@@ -208,20 +221,36 @@ def ejecutar_sistema(
     #    reemplaza el split de producción de arriba — es una validación
     #    adicional, informativa, que se muestra en el panel técnico.
     detalle_validacion_cruzada, resumen_validacion_cruzada = validacion_cruzada_temporal(
-        df_model, feature_cols, metodo_campeon
+        df_model, feature_cols, df_mensual
     )
 
     # 6. Pronóstico recursivo de los próximos N meses, elegidos por el
     #    usuario (pronostico_futuro.py)
+    #    Las estadísticas por producto de este paso usan TODO el historial
+    #    del CSV: al pronosticar meses futuros, ese historial ya es
+    #    conocido (no hay evaluación contra datos que falten), y es lo
+    #    que el sistema hacía antes de esta corrección.
+    df_mensual_pronostico = incorporar_estadisticas_producto(df_mensual, df_mensual, fecha_corte=None)
     (
         pronostico_futuro_df,
         pronostico_pivot,
         meses_pronosticados,
         meses_pronosticados_legibles,
     ) = generar_pronostico_futuro(
-        df_mensual, producto_comportamiento, model, feature_cols, modelo_lr, features_lr,
+        df_mensual_pronostico, producto_comportamiento, model, feature_cols, modelo_lr, features_lr,
         horizonte_meses=horizonte_meses,
     )
+
+    # 6b. Evaluación del pronóstico recursivo desde el último mes de
+    #     entrenamiento, por horizonte (pronostico_futuro.py). Usa el
+    #     mismo procedimiento de pronóstico que el usuario recibe, pero
+    #     contra los meses de prueba ya conocidos: mide el error de
+    #     pronosticar 1, 2, ... meses seguidos sin ver demanda intermedia.
+    comparacion_horizonte, productos_sin_pronostico_horizonte = evaluar_pronostico_recursivo(
+        df_mensual, producto_comportamiento, model, feature_cols, modelo_lr, features_lr,
+        origen=meses_train[-1], horizonte_meses=len(meses_test),
+    )
+    evaluacion_horizonte = resumen_pronostico_por_horizonte(comparacion_horizonte)
 
     # 7. Puntos de reorden y EOQ (reposicion.py — Ejemplos 1 y 2)
     reorder_df, presupuesto_usado, presupuesto_por_producto = calcular_tabla_reorden(
@@ -265,6 +294,8 @@ def ejecutar_sistema(
         "wape_final": None if pd.isna(wape_final) else round(float(wape_final), 2),
         "validacion_cruzada_detalle": detalle_validacion_cruzada,
         "validacion_cruzada_resumen": resumen_validacion_cruzada,
+        "evaluacion_horizonte": evaluacion_horizonte,
+        "evaluacion_horizonte_productos_sin_pronostico": productos_sin_pronostico_horizonte,
         "pronostico_futuro": pronostico_futuro_df.to_dict(orient="records"),
         "pronostico_pivot": pronostico_pivot,
         "meses_pronosticados": meses_pronosticados,

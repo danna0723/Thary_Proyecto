@@ -119,10 +119,15 @@ def fila(resultado, producto_id):
     return reorder_df.loc[producto_id]
 
 
-def test_presupuesto_se_reparte_en_partes_iguales(resultado):
-    _, presupuesto_usado, presupuesto_por_producto = resultado
+def test_presupuesto_usado_y_referencia_por_producto(resultado):
+    """El presupuesto total se devuelve tal cual. La cifra por producto
+    (partes iguales) ya NO limita cada compra: solo se informa como
+    referencia (ver la política al inicio de reposicion.py)."""
+    reorder_df, presupuesto_usado, presupuesto_por_producto = resultado
     assert presupuesto_usado == 6_000_000
     assert presupuesto_por_producto == pytest.approx(2_000_000.0)
+    costos = reorder_df["costo_estimado_pedido"].dropna()
+    assert costos.sum() <= presupuesto_usado
 
 
 class TestA100StockDeSeguridadYPuntoDeReorden:
@@ -224,10 +229,16 @@ class TestB200EOQSinLimiteDePresupuesto:
         assert fila(resultado, "B200")["eoq"] == pytest.approx(round(eoq_esperado), abs=1)
 
     def test_cantidad_sugerida_es_el_eoq_completo_sin_recortar(self, resultado):
+        """B200 se asigna primero (sin alerta, pero es el producto con
+        menos días para pedir entre los que tienen costo). Con 6.000.000
+        disponibles, lo que queda al decidirlo alcanza para 3.000 unidades
+        a $2.000 (6.000.000 / 2.000), así que el EOQ no se recorta."""
         eoq_esperado = math.sqrt((2 * 1200 * 50_000) / 400)
         f = fila(resultado, "B200")
-        assert f["limite_presupuesto_unidades"] == 1000
+        assert f["limite_presupuesto_unidades"] == 3000
         assert f["cantidad_sugerida_pedido"] == pytest.approx(eoq_esperado, abs=0.01)
+        assert f["estado_presupuesto"] == "completo"
+        assert f["cantidad_sin_cubrir"] == pytest.approx(0.0, abs=0.01)
 
     def test_costo_estimado_del_pedido(self, resultado):
         # Ojo: el costo se calcula en producción sobre la cantidad SIN
@@ -284,16 +295,18 @@ class TestC300EOQLimitadoPorElPresupuesto:
       sugerida final tiene que quedar en 40, no en el EOQ "ideal".
     """
 
-    def test_eoq_ideal_es_mayor_al_limite_de_presupuesto(self, resultado):
+    def test_con_presupuesto_suficiente_el_eoq_no_se_recorta(self, resultado):
+        """Con 6.000.000 de presupuesto total, después de B200 (1.095.445)
+        quedan 4.904.555 = 98 unidades a $50.000. El EOQ de C300 (97.98)
+        cabe, así que la cantidad es el EOQ completo."""
         eoq_esperado = math.sqrt((2 * 1200 * 20_000) / 5_000)
         assert eoq_esperado == pytest.approx(97.98, abs=0.01)
-        assert fila(resultado, "C300")["limite_presupuesto_unidades"] == 40
-        assert eoq_esperado > fila(resultado, "C300")["limite_presupuesto_unidades"]
-
-    def test_cantidad_sugerida_queda_acotada_por_el_presupuesto(self, resultado):
         f = fila(resultado, "C300")
-        assert f["cantidad_sugerida_pedido"] == pytest.approx(40, abs=0.01)
-        assert f["costo_estimado_pedido"] == pytest.approx(40 * 50_000, abs=0.01)
+        assert f["limite_presupuesto_unidades"] == 98
+        assert f["cantidad_sugerida_pedido"] == pytest.approx(eoq_esperado, abs=0.01)
+        assert f["cantidad_sin_cubrir"] == pytest.approx(0.0, abs=0.01)
+        assert f["estado_presupuesto"] == "completo"
+        assert f["costo_estimado_pedido"] == pytest.approx(eoq_esperado * 50_000, abs=0.01)
 
     def test_sin_dato_de_inventario_no_hay_alerta_ni_fecha_estimada(self, resultado):
         """Sin inventario_actual en el CSV, el sistema no puede saber si
@@ -379,3 +392,186 @@ class TestD400SigmaUsaElMAEDeBacktestNoLaDispersionDelPronostico:
 
         f = fila(resultado, "D400")
         assert f["punto_reorden_lognormal"] == pytest.approx(punto_reorden_lognormal_esperado, abs=0.01)
+
+
+# ============================================================
+# POLÍTICA DE REPOSICIÓN (corrección P1-B)
+# Casos de la tabla de validación propuesta en el informe: borde de
+# alerta, prioridad y presupuesto insuficiente, cobertura durante la
+# entrega, y fuente del error usado para el stock de seguridad.
+# ============================================================
+
+def _calcular(productos, presupuesto):
+    """
+    productos: lista de dicts con: producto, inventario, pronostico (lista
+    de 3 valores), y opcionalmente costo_unitario, costo_pedido,
+    porcentaje, lead_time_semanas, mae (MAE de backtest del método campeón).
+    Devuelve el reorder_df indexado por producto_id.
+    """
+    df_model = pd.DataFrame({"producto_id": [p["producto"] for p in productos]})
+    df_mensual = pd.DataFrame([{
+        "producto_id": p["producto"], "fecha": FECHA_REFERENCIA,
+        "lead_time_semanas": p.get("lead_time_semanas", np.nan),
+        "costo_pedido": p.get("costo_pedido", np.nan),
+        "porcentaje_costo_mantenimiento": p.get("porcentaje", np.nan),
+        "costo_unitario": p.get("costo_unitario", np.nan),
+        "inventario": p["inventario"],
+    } for p in productos])
+    comportamiento_filas = []
+    for p in productos:
+        fila = {
+            "producto_id": p["producto"], "nombre_producto": p["producto"], "categoria": "TEST",
+            "proveedor_principal": None, "proveedor_alterno": None,
+            "categoria_abc": p.get("abc", "A"), "variabilidad": "Baja", "metodo_campeon": "Media móvil",
+        }
+        if p.get("mae") is not None:
+            fila["mae_media_movil"] = p["mae"]
+        comportamiento_filas.append(fila)
+    pronostico = pd.DataFrame([
+        {"producto_id": p["producto"], "prediccion_final": v}
+        for p in productos for v in p["pronostico"]
+    ])
+    reorder_df, _, _ = calcular_tabla_reorden(
+        df_model, df_mensual, pd.DataFrame(comportamiento_filas), pronostico,
+        presupuesto_capital_trabajo=presupuesto,
+    )
+    return reorder_df.set_index("producto_id")
+
+
+class TestBordeDeAlerta:
+    """
+    Sin EOQ (sin datos de costo). Pronóstico constante 100 -> desvío 0 ->
+    stock de seguridad 0. Lead time por defecto 0.5 meses -> punto de
+    reorden = 100 × 0.5 = 50.
+    """
+
+    def test_inventario_exactamente_en_el_punto_de_reorden_pide_un_mes(self):
+        df = _calcular([{"producto": "E500", "inventario": 50, "pronostico": [100, 100, 100]}], 1_000_000)
+        f = df.loc["E500"]
+        assert f["punto_reorden"] == pytest.approx(50.0)
+        assert f["ordenar"] == "SI"
+        # Antes salía cantidad 0 con alerta activa; ahora un mes de demanda.
+        assert f["cantidad_sugerida_pedido"] == pytest.approx(100.0)
+        assert f["regla_cantidad"] == "un mes de demanda (inventario en el punto de reorden)"
+
+    def test_inventario_sobre_el_punto_de_reorden_no_pide_nada(self):
+        df = _calcular([{"producto": "E500", "inventario": 51, "pronostico": [100, 100, 100]}], 1_000_000)
+        f = df.loc["E500"]
+        assert f["ordenar"] == "NO"
+        assert f["cantidad_sugerida_pedido"] == pytest.approx(0.0)
+        assert f["regla_cantidad"] == "sin necesidad de pedido"
+
+
+class TestPrioridadYPresupuestoInsuficiente:
+    """
+    URG: alerta (inventario 0 <= punto de reorden 50), costo 1.000, sin EOQ
+         -> cantidad ideal = 50 - 0 = 50 unidades ($50.000).
+    NOURG: como B200 (EOQ 547.72, costo 2.000, inventario 200, sin alerta).
+    """
+
+    def _productos(self):
+        urg = {"producto": "URG", "inventario": 0, "pronostico": [100, 100, 100], "costo_unitario": 1_000}
+        nourg = {
+            "producto": "NOURG", "inventario": 200, "pronostico": [100, 100, 100],
+            "lead_time_semanas": 4.345, "costo_pedido": 50_000, "porcentaje": 0.2, "costo_unitario": 2_000,
+        }
+        return [nourg, urg]  # el orden de entrada no debe importar
+
+    def test_los_productos_con_alerta_se_cubren_primero(self):
+        # Presupuesto 1.100.000: si NOURG se asignara primero (EOQ = 1.095.445),
+        # a URG le quedarían solo 4.555 = 4 unidades. Con prioridad, URG recibe
+        # sus 50 unidades completas y NOURG se recorta con el resto.
+        df = _calcular(self._productos(), 1_100_000)
+        urg = df.loc["URG"]
+        nourg = df.loc["NOURG"]
+        assert urg["cantidad_sugerida_pedido"] == pytest.approx(50.0)
+        assert urg["estado_presupuesto"] == "completo"
+        eoq = math.sqrt((2 * 1200 * 50_000) / 400)
+        assert nourg["cantidad_sugerida_pedido"] == pytest.approx(525.0)  # 1.050.000 / 2.000
+        assert nourg["cantidad_ideal_pedido"] == pytest.approx(eoq, abs=0.01)
+        assert nourg["cantidad_sin_cubrir"] == pytest.approx(eoq - 525, abs=0.01)
+        assert nourg["estado_presupuesto"] == "parcial"
+
+    def test_lo_que_no_alcanza_queda_marcado_como_sin_cubrir(self):
+        # Con 50.000 de presupuesto, URG consume exactamente sus 50.000 y
+        # no queda dinero para NOURG (que necesita 2.000 por unidad).
+        df = _calcular(self._productos(), 50_000)
+        nourg = df.loc["NOURG"]
+        assert nourg["cantidad_sugerida_pedido"] == pytest.approx(0.0)
+        assert nourg["estado_presupuesto"] == "sin presupuesto"
+        assert nourg["costo_estimado_pedido"] == pytest.approx(0.0)
+        assert nourg["cantidad_sin_cubrir"] == pytest.approx(
+            math.sqrt((2 * 1200 * 50_000) / 400), abs=0.01
+        )
+
+    def test_el_gasto_total_nunca_supera_el_presupuesto(self):
+        for presupuesto in [50_000, 500_000, 1_100_000, 6_000_000]:
+            df = _calcular(self._productos(), presupuesto)
+            assert df["costo_estimado_pedido"].dropna().sum() <= presupuesto + 1e-6
+
+
+class TestCoberturaDuranteYDespuesDeLaEntrega:
+    def test_cobertura_con_el_pedido_recomendado(self):
+        # Inventario 200, demanda 100/mes, lead time 1 mes -> al llegar el
+        # pedido quedan 100 unidades. Con EOQ 547.72 la cobertura es
+        # (100 + 547.72) / 100 = 6.48 meses.
+        df = _calcular([{
+            "producto": "B200", "inventario": 200, "pronostico": [100, 100, 100],
+            "lead_time_semanas": 4.345, "costo_pedido": 50_000, "porcentaje": 0.2, "costo_unitario": 2_000,
+        }], 6_000_000)
+        f = df.loc["B200"]
+        assert f["stock_al_llegar_pedido"] == pytest.approx(100.0)
+        assert f["riesgo_ruptura_durante_entrega"] == "NO"
+        assert f["cobertura_despues_entrega_meses"] == pytest.approx(
+            (100 + math.sqrt((2 * 1200 * 50_000) / 400)) / 100, abs=0.01
+        )
+
+    def test_riesgo_de_ruptura_si_el_stock_no_alcanza_para_la_entrega(self):
+        # Inventario 20, demanda 100/mes, lead time 1 mes -> faltan 80 unidades
+        # antes de que llegue el pedido.
+        df = _calcular([{
+            "producto": "R1", "inventario": 20, "pronostico": [100, 100, 100],
+            "lead_time_semanas": 4.345, "costo_unitario": 1_000,
+        }], 6_000_000)
+        f = df.loc["R1"]
+        assert f["stock_al_llegar_pedido"] == pytest.approx(-80.0)
+        assert f["riesgo_ruptura_durante_entrega"] == "SI"
+
+
+class TestFuenteDelErrorDelStockDeSeguridad:
+    def test_sin_backtest_se_declara_el_desvio_del_pronostico(self):
+        df = _calcular([{"producto": "E500", "inventario": 50, "pronostico": [100, 110, 90]}], 1_000_000)
+        assert df.loc["E500"]["fuente_sigma"] == "desvío del pronóstico (sin backtest)"
+
+    def test_con_backtest_se_declara_el_mae(self):
+        df = _calcular([{"producto": "E500", "inventario": 50, "pronostico": [100, 110, 90], "mae": 29.33}], 1_000_000)
+        assert df.loc["E500"]["fuente_sigma"] == "MAE de backtest"
+        assert df.loc["E500"]["stock_seguridad"] == pytest.approx(1.65 * 29.33 * math.sqrt(0.5), abs=0.01)
+
+
+class TestOrdenDePrioridadDelPresupuesto:
+    def test_a_igual_urgencia_gana_la_clase_abc_mas_alta(self):
+        # Ambos con alerta y sin riesgo de ruptura ni días distintos; 50.000 de
+        # presupuesto alcanza solo para 50 unidades a $1.000.
+        df = _calcular([
+            {"producto": "X", "inventario": 0, "pronostico": [100, 100, 100], "costo_unitario": 1_000, "abc": "C"},
+            {"producto": "Y", "inventario": 0, "pronostico": [100, 100, 100], "costo_unitario": 1_000, "abc": "A"},
+        ], 50_000)
+        assert df.loc["Y"]["cantidad_sugerida_pedido"] == pytest.approx(50.0)
+        assert df.loc["X"]["cantidad_sugerida_pedido"] == pytest.approx(0.0)
+        assert df.loc["X"]["estado_presupuesto"] == "sin presupuesto"
+
+    def test_el_riesgo_de_ruptura_antes_de_la_entrega_gana_al_orden_abc(self):
+        # Demanda 100/mes, lead time 1 mes: al llegar el pedido, el stock
+        # restante es inventario - 100.
+        # W: inventario 20 -> faltan 80 antes de la entrega (riesgo SI), clase C.
+        # V: inventario 100 -> llega justo (queda 0, riesgo NO), clase A.
+        # Con 30.000 solo alcanza para 30 unidades: primero W por riesgo.
+        df = _calcular([
+            {"producto": "V", "inventario": 100, "pronostico": [100, 100, 100], "costo_unitario": 1_000, "abc": "A", "lead_time_semanas": 4.345},
+            {"producto": "W", "inventario": 20, "pronostico": [100, 100, 100], "costo_unitario": 1_000, "abc": "C", "lead_time_semanas": 4.345},
+        ], 30_000)
+        assert df.loc["W"]["riesgo_ruptura_durante_entrega"] == "SI"
+        assert df.loc["V"]["riesgo_ruptura_durante_entrega"] == "NO"
+        assert df.loc["W"]["cantidad_sugerida_pedido"] == pytest.approx(30.0)
+        assert df.loc["V"]["cantidad_sugerida_pedido"] == pytest.approx(0.0)

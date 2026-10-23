@@ -7,12 +7,45 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    # 3.12 es la versión con la que se desarrolla y se corren las pruebas en
+    # local; 3.13 es la que indica .python-version para el despliegue. Se
+    # prueban las dos para confirmar que ambas funcionan.
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    # Las pruebas de base de datos (persistencia, aislamiento entre empresas,
+    # flujo end-to-end) necesitan un MySQL real. Este servicio es descartable
+    # y solo existe durante la ejecución del CI.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-password
+          MYSQL_DATABASE: sistema_inventario
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-root-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ci-root-password
+      DB_NAME: sistema_inventario
+      SECRET_KEY: ci-secret-key-no-usar-en-produccion
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
 
       - run: pip install -r requirements.txt

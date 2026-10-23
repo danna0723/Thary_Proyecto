@@ -85,8 +85,10 @@ Variables de entorno que hay que configurar en el servicio web, además de las d
 El arranque en producción usa Gunicorn, configurado en el archivo `Procfile`:
 
 ```
-web: gunicorn run:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+web: gunicorn run:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 300
 ```
+
+Se usa un solo proceso (`--workers 1`) con hilos. El límite de intentos de login y registro (10 por minuto, por IP) se guarda en memoria del proceso: con varios workers cada uno tendría su propio contador y el límite no sería global.
 
 Railway detecta automáticamente la versión de Python (`.python-version`) e instala las dependencias de `requirements.txt`.
 

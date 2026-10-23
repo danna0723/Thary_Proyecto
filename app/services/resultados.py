@@ -14,7 +14,12 @@ import pandas as pd
 from sqlalchemy import text
 
 from app.services.db import get_engine
-from app.services.prediccion.pronostico_futuro import NOMBRES_MES_ES, es_baja_confianza
+from app.services.prediccion.pronostico_futuro import (
+    NOMBRES_MES_ES,
+    ESTADO_ERROR_NO_DISPONIBLE,
+    es_baja_confianza,
+    estado_error_del_producto,
+)
 
 # Qué clave del dict que arma ejecutar_sistema() va en qué tabla hija.
 TABLAS_RESULTADO = {
@@ -180,10 +185,20 @@ def _armar_pronostico_pivot(registros_pronostico):
         minimos_crudos = [f.get("prediccion_min") if f.get("prediccion_min") is not None else f["prediccion_final"] for f in filas_ordenadas]
         maximos_crudos = [f.get("prediccion_max") if f.get("prediccion_max") is not None else f["prediccion_final"] for f in filas_ordenadas]
         confianzas_bajas = [es_baja_confianza(v, mn) for v, mn in zip(valores_crudos, minimos_crudos)]
+        # Estado del error histórico (ver pronostico_futuro.estado_error_historico).
+        # Las corridas guardadas antes de esta columna no lo tienen (NULL): en
+        # ese caso no se inventa un estado — queda None y la interfaz no lo muestra.
+        estados_error = [f.get("estado_error") for f in filas_ordenadas]
+        estado_producto = None if any(e is None for e in estados_error) else estado_error_del_producto(estados_error)
         pivot.append({
             "producto_id": producto_id,
             "nombre_producto": filas_ordenadas[0]["nombre_producto"],
             "categoria": filas_ordenadas[0]["categoria"],
+            "estados_error": estados_error,
+            "estado_error": estado_producto,
+            # D3: ver pronostico_futuro.generar_pronostico_futuro.
+            "sin_margen_por_mes": [e == ESTADO_ERROR_NO_DISPONIBLE for e in estados_error],
+            "sin_margen": ESTADO_ERROR_NO_DISPONIBLE in estados_error,
             "valores": [round(v) for v in valores_crudos],
             "rangos": [[round(mn), round(mx)] for mn, mx in zip(minimos_crudos, maximos_crudos)],
             "confianzas_bajas": confianzas_bajas,

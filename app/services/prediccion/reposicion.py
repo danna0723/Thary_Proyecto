@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from app.services.prediccion.pronostico_futuro import MAE_POR_METODO_COL
+from app.services.prediccion.pronostico_futuro import MAE_POR_METODO_COL, estado_error_historico
 from app.services.prediccion.utils import nan_a_none
 
 SERVICE_LEVEL_Z = 1.65
@@ -35,6 +35,32 @@ DIAS_PARA_PEDIDO_TECHO = 36_500  # 100 años
 # usuario al subir el archivo), no sobre el backtest histórico: para
 # decidir cuánto pedir hoy interesa lo que se espera vender, no lo bien
 # que el modelo acertó en el pasado.
+#
+# ----------------------------------------------------------------------
+# POLÍTICA DE CANTIDAD (corrección P1-B — supuestos a validar con el
+# gestor de inventarios; no son valores bibliográficos):
+#
+#   1. Alerta: se ordena cuando inventario <= punto de reorden.
+#   2. Cantidad ideal, en este orden de preferencia:
+#        a. EOQ, si hay datos de costo para calcularlo.
+#        b. punto de reorden - inventario, si es positivo.
+#        c. Si hay alerta pero esa diferencia es 0 (inventario exactamente
+#           en el punto de reorden): un mes de demanda pronosticada, para
+#           que la alerta nunca salga con cantidad 0 sin explicación.
+#        d. Sin alerta y sin EOQ: 0 (no hay nada que pedir todavía).
+#   3. Presupuesto: se asigna por prioridad, no en partes iguales. Orden:
+#      productos con alerta; luego los que se agotarían antes de que llegue
+#      el pedido; luego clase ABC (A, B, C); luego menos días para llegar al
+#      punto de reorden. Cada producto recibe lo que alcance con
+#      el dinero que queda; lo que no alcanza se reporta como "sin cubrir"
+#      en vez de quedar oculto.
+#   4. Productos sin costo unitario no consumen presupuesto (no se pueden
+#      valorar) y conservan su cantidad ideal.
+#
+# La regla 2.c y la prioridad de la regla 3 son propuestas del desarrollo
+# y deben acordarse con el gestor antes de presentarse como la política
+# de la clínica.
+# ----------------------------------------------------------------------
 def calcular_tabla_reorden(
     df_model, df_mensual, producto_comportamiento, pronostico_futuro_df,
     presupuesto_capital_trabajo=None
@@ -45,6 +71,10 @@ def calcular_tabla_reorden(
     no se especifica (None), se usa WORKING_CAPITAL_BUDGET_DEFAULT como
     respaldo — el mismo comportamiento que tenía el sistema antes de que
     el usuario pudiera ingresar su propio presupuesto.
+
+    Devuelve (reorder_df, working_capital_budget, presupuesto_por_producto).
+    presupuesto_por_producto (partes iguales) se sigue devolviendo como
+    referencia informativa; ya no decide cuánto se asigna a cada producto.
     """
     working_capital_budget = (
         presupuesto_capital_trabajo
@@ -74,7 +104,7 @@ def calcular_tabla_reorden(
     )
     producto_comportamiento_idx = producto_comportamiento.set_index("producto_id")
 
-    reorder_table = []
+    filas = []
     for producto in sorted(df_model["producto_id"].unique()):
         if producto not in stats_pronostico.index:
             continue
@@ -108,13 +138,16 @@ def calcular_tabla_reorden(
         # predicción, en vez de una segunda noción de "variabilidad"
         # distinta e inconsistente con esa. Sin MAE medido (producto sin
         # backtest) se cae al criterio anterior, para no dejar el stock de
-        # seguridad sin ningún valor.
+        # seguridad sin ningún valor — y la fuente queda registrada en
+        # "fuente_sigma" para que la interfaz pueda distinguirlo.
         metodo_campeon = segmento["metodo_campeon"]
         mae_campeon = segmento.get(MAE_POR_METODO_COL.get(metodo_campeon))
         if mae_campeon is not None and not pd.isna(mae_campeon):
             desviacion_demanda = mae_campeon
+            fuente_sigma = "MAE de backtest"
         else:
             desviacion_demanda = stats_pronostico.at[producto, "desviacion_pronostico_std"]
+            fuente_sigma = "desvío del pronóstico (sin backtest)"
 
         # Ejemplo 1: Safety Stock = Z * sigma_demanda * sqrt(L)
         stock_seguridad = SERVICE_LEVEL_Z * desviacion_demanda * np.sqrt(lead_time_meses)
@@ -167,56 +200,31 @@ def calcular_tabla_reorden(
         else:
             eoq = np.nan
 
-        if not pd.isna(costo_unitario_producto) and costo_unitario_producto > 0:
-            limite_presupuesto = int(presupuesto_por_producto / costo_unitario_producto)
-        else:
-            limite_presupuesto = np.nan
+        tiene_costo = not pd.isna(costo_unitario_producto) and costo_unitario_producto > 0
+        hay_inventario = not pd.isna(inventario_actual)
+        hay_alerta = hay_inventario and inventario_actual <= punto_reorden
 
+        # Cantidad ideal, antes de considerar el presupuesto (ver la
+        # política al inicio de la función).
         if not pd.isna(eoq):
-            cantidad_sugerida = eoq
-        elif not pd.isna(inventario_actual):
-            cantidad_sugerida = max(0, punto_reorden - inventario_actual)
+            cantidad_ideal = eoq
+            regla_cantidad = "EOQ"
+        elif hay_inventario:
+            diferencia = punto_reorden - inventario_actual
+            if diferencia > 0:
+                cantidad_ideal = diferencia
+                regla_cantidad = "punto de reorden - inventario"
+            elif hay_alerta and demanda_promedio > 0:
+                cantidad_ideal = demanda_promedio
+                regla_cantidad = "un mes de demanda (inventario en el punto de reorden)"
+            else:
+                cantidad_ideal = 0.0
+                regla_cantidad = "sin necesidad de pedido"
         else:
-            cantidad_sugerida = np.nan
+            cantidad_ideal = np.nan
+            regla_cantidad = "sin dato de inventario"
 
-        # Ejemplo 1: cantidad a pedir acotada por el presupuesto de
-        # capital de trabajo (min(EOQ, límite por presupuesto)). Se aplica
-        # sobre CUALQUIER método usado arriba (EOQ o la diferencia contra
-        # el punto de reorden), no solo cuando hay EOQ: muchos catálogos
-        # reales (como el de la clínica) no traen costo_pedido ni
-        # porcentaje_costo_mantenimiento, así que el EOQ nunca se puede
-        # calcular — pero sí se conoce el costo_unitario, y el presupuesto
-        # tiene que respetarse igual.
-        if not pd.isna(cantidad_sugerida) and not pd.isna(limite_presupuesto):
-            cantidad_sugerida = min(cantidad_sugerida, limite_presupuesto)
-
-        # Costo estimado de hacer ese pedido (cantidad * costo unitario).
-        # No viene de ningún ejemplo de referencia — se agrega para que el
-        # usuario vea en dinero, no solo en unidades, cuánto implica cada
-        # pedido sugerido, y pueda contrastarlo contra su presupuesto.
-        if not pd.isna(cantidad_sugerida) and not pd.isna(costo_unitario_producto):
-            costo_estimado_pedido = cantidad_sugerida * costo_unitario_producto
-        else:
-            costo_estimado_pedido = np.nan
-
-        # Valor de lo que ya hay en stock (inventario actual * costo
-        # unitario) — para la pantalla de "Estado del inventario", donde
-        # interesa cuánto capital está inmovilizado hoy en el depósito,
-        # no cuánto costaría reponerlo.
-        if not pd.isna(inventario_actual) and not pd.isna(costo_unitario_producto):
-            valor_inventario_actual = inventario_actual * costo_unitario_producto
-        else:
-            valor_inventario_actual = np.nan
-
-        # Costo de ruptura de inventario (stockout): el margen que se
-        # dejaría de ganar si el producto se agota y no hay stock
-        # disponible durante el tiempo que tarda en llegar el próximo
-        # pedido (lead time). Es la tercera categoría de costo de
-        # inventario junto con el costo de pedido (EOQ, arriba) y el
-        # costo de mantenimiento (porcentaje_costo_mantenimiento, usado
-        # en el EOQ) — ver el desglose "Costos del inventario" en la
-        # pantalla de Presupuesto. Requiere el precio de venta (columna
-        # opcional Precio/Price): sin eso no hay margen que calcular.
+        # Costo de ruptura de inventario (stockout) y precio: sin cambios.
         precio_producto = fila_params.get("precio", np.nan)
         demanda_diaria = demanda_promedio / DIAS_POR_MES
         lead_time_dias = lead_time_meses * DIAS_POR_MES
@@ -230,6 +238,18 @@ def calcular_tabla_reorden(
             margen_unitario = np.nan
             costo_ruptura_estimado = np.nan
 
+        # Cobertura durante el lead time: si se pidiera hoy, cuánto stock
+        # quedaría cuando llegue el pedido (inventario menos la demanda
+        # esperada durante la entrega). Si es negativo, el producto se
+        # agota antes de que llegue. Es la pregunta de la tabla del informe
+        # "¿qué cobertura ofrece la cantidad durante y después de la entrega?".
+        if hay_inventario:
+            stock_al_llegar_pedido = inventario_actual - demanda_promedio * lead_time_meses
+            riesgo_ruptura_durante_entrega = stock_al_llegar_pedido < 0
+        else:
+            stock_al_llegar_pedido = np.nan
+            riesgo_ruptura_durante_entrega = None
+
         # Fecha estimada en la que el inventario va a llegar al punto de
         # reorden, asumiendo que se consume al ritmo promedio pronosticado
         # (una aproximación lineal — no sabe de picos puntuales dentro del
@@ -237,15 +257,14 @@ def calcular_tabla_reorden(
         # cantidad). Si ya está en o por debajo del punto de reorden, la
         # fecha es "ya" (hoy mismo). Si no hay demanda pronosticada, no se
         # puede estimar cuándo se va a agotar.
-        ya_hay_que_pedir = not pd.isna(inventario_actual) and inventario_actual <= punto_reorden
-        if pd.isna(inventario_actual):
+        ya_hay_que_pedir = hay_alerta
+        if not hay_inventario:
             fecha_estimada_pedido = None
             dias_para_pedido = np.nan
         elif ya_hay_que_pedir:
             fecha_estimada_pedido = fecha_referencia
             dias_para_pedido = 0
         elif demanda_promedio > 0:
-            demanda_diaria = demanda_promedio / DIAS_POR_MES
             dias_para_pedido = min(
                 (inventario_actual - punto_reorden) / demanda_diaria,
                 DIAS_PARA_PEDIDO_TECHO,
@@ -255,7 +274,7 @@ def calcular_tabla_reorden(
             fecha_estimada_pedido = None
             dias_para_pedido = np.nan
 
-        reorder_table.append({
+        filas.append({
             "producto_id": producto,
             "nombre_producto": segmento.get("nombre_producto"),
             "categoria": segmento.get("categoria"),
@@ -269,21 +288,85 @@ def calcular_tabla_reorden(
             "lead_time_meses": round(lead_time_meses, 2),
             "stock_seguridad": round(stock_seguridad, 2),
             "punto_reorden": round(punto_reorden, 2),
+            "fuente_sigma": fuente_sigma,
+            # "medido" / "medido en cero" / "no disponible" — mismo criterio que el
+            # pronóstico (ver pronostico_futuro.estado_error_historico). Sin backtest
+            # no hay error medido: el estado es "no disponible", aunque el stock de
+            # seguridad se calcule con el desvío del pronóstico.
+            "estado_error_historico": estado_error_historico(
+                mae_campeon if fuente_sigma == "MAE de backtest" else None
+            ),
             "stock_seguridad_lognormal": round(stock_seguridad_lognormal, 2) if not pd.isna(stock_seguridad_lognormal) else np.nan,
             "punto_reorden_lognormal": round(punto_reorden_lognormal, 2) if not pd.isna(punto_reorden_lognormal) else np.nan,
-            "inventario_actual": round(inventario_actual, 2) if not pd.isna(inventario_actual) else np.nan,
+            "inventario_actual": round(inventario_actual, 2) if hay_inventario else np.nan,
+            "stock_al_llegar_pedido": round(stock_al_llegar_pedido, 2) if hay_inventario else np.nan,
+            "riesgo_ruptura_durante_entrega": None if riesgo_ruptura_durante_entrega is None else ("SI" if riesgo_ruptura_durante_entrega else "NO"),
             "eoq": round(eoq, 0) if not pd.isna(eoq) else np.nan,
-            "limite_presupuesto_unidades": limite_presupuesto,
-            "cantidad_sugerida_pedido": round(cantidad_sugerida, 2) if not pd.isna(cantidad_sugerida) else np.nan,
+            "cantidad_ideal_pedido": round(cantidad_ideal, 2) if not pd.isna(cantidad_ideal) else np.nan,
+            "regla_cantidad": regla_cantidad,
             "costo_unitario": round(costo_unitario_producto, 2) if not pd.isna(costo_unitario_producto) else np.nan,
-            "costo_estimado_pedido": round(costo_estimado_pedido, 2) if not pd.isna(costo_estimado_pedido) else np.nan,
-            "valor_inventario_actual": round(valor_inventario_actual, 2) if not pd.isna(valor_inventario_actual) else np.nan,
+            "valor_inventario_actual": round(inventario_actual * costo_unitario_producto, 2) if hay_inventario and not pd.isna(costo_unitario_producto) else np.nan,
             "margen_unitario": round(margen_unitario, 2) if not pd.isna(margen_unitario) else np.nan,
             "costo_ruptura_estimado": round(costo_ruptura_estimado, 2) if not pd.isna(costo_ruptura_estimado) else np.nan,
             "fecha_estimada_pedido": fecha_estimada_pedido.strftime("%Y-%m-%d") if fecha_estimada_pedido is not None else None,
             "dias_para_pedido": round(dias_para_pedido) if not pd.isna(dias_para_pedido) else None,
-            "ordenar": "SI" if ya_hay_que_pedir else "NO"
+            "ordenar": "SI" if ya_hay_que_pedir else "NO",
+            # Datos internos para asignar el presupuesto (no se exponen).
+            "_tiene_costo": tiene_costo,
+            "_costo": costo_unitario_producto,
+            "_cantidad_ideal": cantidad_ideal,
+            "_dias": dias_para_pedido,
+            "_demanda_promedio": demanda_promedio,
+            "_lead_time_meses": lead_time_meses,
+            "_hay_alerta": hay_alerta,
         })
+
+    _asignar_presupuesto(filas, working_capital_budget)
+
+    reorder_table = []
+    for fila in filas:
+        asignada = fila.pop("_asignada")
+        limite = fila.pop("_limite")
+        ideal = fila.pop("_cantidad_ideal")
+        tiene_costo = fila.pop("_tiene_costo")
+        costo_exacto = fila.pop("_costo")
+        demanda_promedio = fila.pop("_demanda_promedio")
+        lead_time_meses = fila.pop("_lead_time_meses")
+        fila.pop("_dias")
+        fila.pop("_hay_alerta")
+
+        costo_estimado_pedido = (
+            asignada * costo_exacto
+            if tiene_costo and not pd.isna(asignada) else np.nan
+        )
+        sin_cubrir = (
+            ideal - asignada if tiene_costo and not pd.isna(ideal) and not pd.isna(asignada) else np.nan
+        )
+        if pd.isna(ideal) or ideal <= 0:
+            estado_presupuesto = None
+        elif asignada >= ideal:
+            estado_presupuesto = "completo"
+        elif asignada > 0:
+            estado_presupuesto = "parcial"
+        else:
+            estado_presupuesto = "sin presupuesto"
+
+        # Cobertura después de la entrega: meses de demanda que alcanza el
+        # stock que queda al llegar el pedido, más la cantidad asignada.
+        if not pd.isna(fila["stock_al_llegar_pedido"]) and not pd.isna(asignada) and demanda_promedio > 0:
+            cobertura_despues_entrega = (fila["stock_al_llegar_pedido"] + asignada) / demanda_promedio
+        else:
+            cobertura_despues_entrega = np.nan
+
+        fila.update({
+            "limite_presupuesto_unidades": limite,
+            "cantidad_sugerida_pedido": round(asignada, 2) if not pd.isna(asignada) else np.nan,
+            "cantidad_sin_cubrir": round(sin_cubrir, 2) if not pd.isna(sin_cubrir) else np.nan,
+            "estado_presupuesto": estado_presupuesto,
+            "costo_estimado_pedido": round(costo_estimado_pedido, 2) if not pd.isna(costo_estimado_pedido) else np.nan,
+            "cobertura_despues_entrega_meses": round(cobertura_despues_entrega, 2) if not pd.isna(cobertura_despues_entrega) else np.nan,
+        })
+        reorder_table.append(fila)
 
     reorder_df = pd.DataFrame(reorder_table)
     # Reconstruir el DataFrame desde una lista de diccionarios puede
@@ -301,6 +384,58 @@ def calcular_tabla_reorden(
         "cantidad_sugerida_pedido", "costo_unitario", "costo_estimado_pedido",
         "valor_inventario_actual", "dias_para_pedido", "margen_unitario", "costo_ruptura_estimado",
         "stock_seguridad_lognormal", "punto_reorden_lognormal",
+        "cantidad_ideal_pedido", "cantidad_sin_cubrir", "estado_presupuesto",
+        "stock_al_llegar_pedido", "riesgo_ruptura_durante_entrega", "cobertura_despues_entrega_meses",
+        "regla_cantidad", "fuente_sigma",
     ])
 
     return reorder_df, working_capital_budget, presupuesto_por_producto
+
+
+def _asignar_presupuesto(filas, presupuesto_total):
+    """
+    Reparte presupuesto_total entre las cantidades ideales por prioridad
+    (ver la política al inicio de calcular_tabla_reorden). Modifica "filas"
+    en place agregando "_asignada" y "_limite" (unidades que alcanzaron con
+    el dinero que quedaba en el momento de decidir).
+    """
+    # Prioridad (de mayor a menor): alerta de pedido; riesgo de agotarse
+    # antes de que llegue el pedido; clase ABC (A antes que B y C); menos
+    # días para llegar al punto de reorden; y, como último criterio fijo,
+    # el ID del producto. Sin los criterios de riesgo y ABC, todos los
+    # urgentes empatan en días y el desempate alfabético decidía quién
+    # recibía el dinero.
+    orden_abc = {"A": 0, "B": 1, "C": 2}
+    orden = sorted(
+        range(len(filas)),
+        key=lambda i: (
+            0 if filas[i]["ordenar"] == "SI" else 1,
+            0 if filas[i]["riesgo_ruptura_durante_entrega"] == "SI" else 1,
+            orden_abc.get(filas[i]["categoria_abc"], 3),
+            filas[i]["_dias"] if not pd.isna(filas[i]["_dias"]) else float("inf"),
+            filas[i]["producto_id"],
+        ),
+    )
+    restante = float(presupuesto_total)
+    for i in orden:
+        fila = filas[i]
+        ideal = fila["_cantidad_ideal"]
+        costo = fila["_costo"]
+
+        if pd.isna(ideal):
+            fila["_asignada"] = np.nan
+            fila["_limite"] = np.nan
+            continue
+
+        if not fila["_tiene_costo"]:
+            # Sin costo no se puede valorar la compra: no consume presupuesto
+            # y se conserva la cantidad ideal.
+            fila["_asignada"] = ideal
+            fila["_limite"] = np.nan
+            continue
+
+        unidades_disponibles = int(restante // costo)
+        asignada = min(ideal, unidades_disponibles)
+        restante -= asignada * costo
+        fila["_asignada"] = asignada
+        fila["_limite"] = unidades_disponibles

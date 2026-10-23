@@ -1,13 +1,52 @@
 import numpy as np
 
 
+# EXTENSIÓN PROPIA (corrección de fuga temporal) — media y desvío de la
+# demanda mensual de cada producto. Son predictoras, pero NO se calculan
+# acá: dependen del corte temporal (ver incorporar_estadisticas_producto).
+# Antes se tomaban de todo el historial del CSV, incluidos los meses de
+# prueba y de validación, así que el modelo "conocía" parte del período
+# que después se usaba para medirlo.
+COLUMNAS_ESTADISTICAS_PRODUCTO = ["media_producto", "desviacion_producto"]
+
+
+def incorporar_estadisticas_producto(df, df_mensual, fecha_corte=None):
+    """
+    Agrega a "df" las columnas media_producto y desviacion_producto,
+    calculadas SOLO con los meses de df_mensual hasta fecha_corte
+    (inclusive). Con fecha_corte=None usa todo el historial; eso solo
+    corresponde al pronóstico futuro, donde todo el historial ya es
+    conocido — nunca a filas que se van a usar para evaluar.
+
+    Devuelve una copia de df. Si df ya traía esas columnas (calculadas
+    con otro corte), se reemplazan, no se conservan. Productos sin
+    historia hasta el corte quedan con 0 (mismo criterio que los demás
+    NaN de las features).
+    """
+    historia = df_mensual if fecha_corte is None else df_mensual[df_mensual["fecha"] <= fecha_corte]
+    estadisticas = (
+        historia.groupby("producto_id")["demanda"]
+        .agg(media_producto="mean", desviacion_producto="std")
+        .reset_index()
+    )
+    base = df.drop(columns=[c for c in COLUMNAS_ESTADISTICAS_PRODUCTO if c in df.columns])
+    resultado = base.merge(estadisticas, on="producto_id", how="left")
+    for col in COLUMNAS_ESTADISTICAS_PRODUCTO:
+        resultado[col] = resultado[col].fillna(0)
+    return resultado
+
+
 def construir_features(df_mensual, producto_comportamiento):
     """
     Enriquece df_mensual con las variables que usan los modelos (fecha
-    cíclica, lags, medias/desviaciones móviles, estadísticas históricas
-    por producto), arma df_model (solo filas con suficiente historial
-    para tener lags válidos) y la lista final de columnas de features
-    según lo que traiga el CSV (precio/inventario son opcionales).
+    cíclica, lags, medias/desviaciones móviles), arma df_model (solo filas
+    con suficiente historial para tener lags válidos) y la lista final de
+    columnas de features según lo que traiga el CSV (precio/inventario son
+    opcionales).
+
+    Las columnas de COLUMNAS_ESTADISTICAS_PRODUCTO aparecen en feature_cols
+    pero NO se calculan acá: hay que llamar a incorporar_estadisticas_producto
+    sobre df_model con el corte del split correspondiente antes de usarlas.
 
     Devuelve (df_mensual, df_model, feature_cols).
     """
@@ -48,15 +87,6 @@ def construir_features(df_mensual, producto_comportamiento):
         lambda x: x.shift(1).rolling(3).std()
     )
 
-    # Ejemplo 3 (Kaggle Grupo Bimbo):
-    stats_cols = ["demanda_total", "media", "desviacion"]
-    df_mensual = df_mensual.merge(
-        producto_comportamiento[["producto_id"] + stats_cols].rename(
-            columns={"media": "media_producto", "desviacion": "desviacion_producto"}
-        ),
-        on="producto_id", how="left"
-    )
-
     if "inventario" in df_mensual.columns:
         df_mensual["inventario_lag_1"] = df_mensual.groupby("producto_id")["inventario"].shift(1)
 
@@ -73,7 +103,7 @@ def construir_features(df_mensual, producto_comportamiento):
         "año", "mes_sin", "mes_cos",
         "lag_1", "lag_2", "lag_3", "lag_6",
         "media_movil_3", "media_movil_6", "desviacion_movil_3",
-        "media_producto", "desviacion_producto"
+        *COLUMNAS_ESTADISTICAS_PRODUCTO
     ]
     if "precio" in df_model.columns:
         # Solo el NIVEL de precio (estable, se puede seguir usando el
@@ -83,12 +113,18 @@ def construir_features(df_mensual, producto_comportamiento):
         # que no se puede conocer el valor futuro real, y forzarlo a 0
         # para el pronóstico hacía que el modelo colapsara.
         feature_cols.append("precio")
-    if "inventario" in df_model.columns:
-        feature_cols.append("inventario")
-        if "inventario_lag_1" in df_model.columns:
-            feature_cols.append("inventario_lag_1")
+    # CORRECCIÓN DE FUGA: el inventario del MISMO mes no se usa como
+    # variable. Es un saldo de cierre que depende de las ventas de ese mes,
+    # así que en el entrenamiento filtra la demanda que se quiere predecir,
+    # y al pronosticar no existe (se reemplazaba por el último valor
+    # conocido). Solo se usa el inventario del mes anterior, que sí se
+    # conoce antes de pronosticar el mes siguiente.
+    if "inventario_lag_1" in df_model.columns:
+        feature_cols.append("inventario_lag_1")
 
     for col in feature_cols:
+        if col in COLUMNAS_ESTADISTICAS_PRODUCTO:
+            continue  # se rellenan en incorporar_estadisticas_producto
         if df_model[col].isna().any():
             df_model[col] = df_model[col].fillna(0)
 

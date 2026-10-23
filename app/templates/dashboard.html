@@ -70,23 +70,36 @@ próximos {{ r.meses_pronosticados_legibles | length }} mes(es), ordenado de may
         <div class="card">
             <div class="card-block">
                 <p class="text-muted small">
-                    El número grande es la cantidad más probable; el rango chico debajo indica
-                    qué tan segura es.
+                    El número grande es la predicción puntual del mes. El rango chico debajo es un
+                    <strong>margen descriptivo</strong>: el error que tuvo, en el pasado, el método
+                    elegido con este producto. No es una probabilidad de que la demanda caiga dentro
+                    de ese rango.
                     <span class="ayuda-icono" tabindex="0">
                         <i class="fa fa-question-circle"></i>
                         <span class="ayuda-tooltip ayuda-tooltip-abajo">
-                            El rango es un mínimo y máximo estimados según qué tanto se equivocó
-                            el método con este producto en el pasado — a más ancho, menos segura
-                            la predicción. El ícono
-                            <i class="fa fa-exclamation-triangle text-warning"></i> marca los
-                            casos de baja confianza, donde el rango es tan ancho que el mínimo
-                            llegó a 0 (típico de productos de demanda intermitente: casi siempre
-                            cero, con picos esporádicos). Para esos productos conviene apoyarse
-                            más en el punto de reorden/stock de seguridad que en el número de un
-                            mes concreto.
+                            El margen sale del error histórico (MAE de backtest) del método usado con
+                            este producto. Puede estar en tres estados: <strong>medido</strong> (hubo
+                            backtest y tuvo error); <strong>medido en cero</strong> (el error fue 0; con
+                            pocos meses de prueba eso suele indicar muestra insuficiente, no un modelo
+                            perfecto); o <strong>no disponible</strong> (el producto no tiene backtest, así
+                            que no hay margen medido y el rango no debe leerse como confiable).
+                            El ícono
+                            <i class="fa fa-exclamation-triangle text-warning"></i> marca baja confianza:
+                            el margen cubre toda la predicción y el mínimo quedó en 0 (típico de demanda
+                            intermitente: casi siempre cero, con picos esporádicos). Para esos productos
+                            conviene apoyarse más en el punto de reorden y el stock de seguridad que en el
+                            número de un mes concreto.
                         </span>
                     </span>
                 </p>
+                {% if productos_excluidos %}
+                <div class="alert alert-warning" role="alert">
+                    <strong>{{ productos_excluidos|length }} producto(s) no tienen pronóstico.</strong>
+                    Tienen menos de 4 meses de historial, así que no alcanzan para calcular la tendencia y
+                    no entran en el pronóstico ni en la reposición:
+                    {% for p in productos_excluidos[:20] %}{{ p.nombre_producto or p.producto_id }}{% if not loop.last %}, {% endif %}{% endfor %}{% if productos_excluidos|length > 20 %} y {{ productos_excluidos|length - 20 }} más{% endif %}.
+                </div>
+                {% endif %}
                 <div class="table-responsive">
                     <table class="table table-striped table-hover tabla-buscable" id="tabla-pronostico">
                         <thead>
@@ -121,15 +134,29 @@ próximos {{ r.meses_pronosticados_legibles | length }} mes(es), ordenado de may
                                     {% if fila.confianzas_bajas and fila.confianzas_bajas[loop.index0] %}
                                     <i class="fa fa-exclamation-triangle text-warning" title="Baja confianza: el rango es tan ancho que el mínimo se recortó en 0."></i>
                                     {% endif %}
+                                    {% if fila.sin_margen_por_mes and fila.sin_margen_por_mes[loop.index0] %}
+                                    <i class="fa fa-question-circle text-danger" title="Sin margen medido: el producto no tiene backtest, así que no se puede evaluar la confianza de este mes."></i>
+                                    {% endif %}
                                     {% if fila.rangos and fila.rangos[loop.index0][0] != fila.rangos[loop.index0][1] %}
                                     <small class="d-block text-muted">{{ fila.rangos[loop.index0][0] }}–{{ fila.rangos[loop.index0][1] }}</small>
+                                    {% endif %}
+                                    {% if fila.estados_error and fila.estados_error[loop.index0] == "no disponible" %}
+                                    <small class="d-block text-danger">sin error histórico</small>
+                                    {% elif fila.estados_error and fila.estados_error[loop.index0] == "medido en cero" %}
+                                    <small class="d-block text-muted">error histórico 0</small>
                                     {% endif %}
                                 </td>
                                 {% endfor %}
                                 <td class="celda-total" data-order="{{ fila.total }}">
                                     <strong class="text-primary">{{ fila.total }}</strong>
+                                    {% if fila.estado_error == "no disponible" %}
+                                    <small class="d-block text-danger">margen no disponible</small>
+                                    {% endif %}
                                     {% if fila.total_baja_confianza %}
                                     <i class="fa fa-exclamation-triangle text-warning" title="Baja confianza: al menos un mes de este total tiene el rango recortado en 0."></i>
+                                    {% endif %}
+                                    {% if fila.sin_margen %}
+                                    <i class="fa fa-question-circle text-danger" title="Sin margen medido en al menos un mes: este total no se puede evaluar con backtest."></i>
                                     {% endif %}
                                     {% if fila.total_min is defined and fila.total_min != fila.total_max %}
                                     <small class="d-block text-muted">{{ fila.total_min }}–{{ fila.total_max }}</small>

@@ -29,9 +29,9 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
 {% if r.presupuesto_capital_trabajo %}
 <p class="text-muted small">
     <strong>Presupuesto</strong>: la cantidad sugerida a pedir respeta un presupuesto total
-    de <strong>${{ r.presupuesto_capital_trabajo | moneda }}</strong>, repartido en
-    partes iguales entre los productos del catálogo (${{ r.presupuesto_por_producto | moneda }}
-    por producto). Cambia este monto subiendo el archivo de nuevo con otro valor en el
+    de <strong>${{ r.presupuesto_capital_trabajo | moneda }}</strong>. Se asigna primero a los
+    productos con alerta de pedido y después a los más urgentes; lo que no alcanza aparece como
+    "sin cubrir" en la tabla. Cambia este monto subiendo el archivo de nuevo con otro valor en el
     formulario.
 </p>
 {% endif %}
@@ -42,6 +42,23 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
     {% if r.presupuesto_capital_trabajo %}
     (de un presupuesto total de ${{ r.presupuesto_capital_trabajo | moneda }})
     {% endif %}
+</div>
+{% endif %}
+{% set urgentes_sin_presupuesto = alertas | selectattr("estado_presupuesto", "equalto", "sin presupuesto") | list %}
+{% set urgentes_parciales = alertas | selectattr("estado_presupuesto", "equalto", "parcial") | list %}
+{% set ns_ideal = namespace(costo=0) %}
+{% for f in alertas %}
+{% if f.cantidad_ideal_pedido is not none and f.costo_unitario is not none %}
+{% set ns_ideal.costo = ns_ideal.costo + f.cantidad_ideal_pedido * f.costo_unitario %}
+{% endif %}
+{% endfor %}
+{% if (urgentes_sin_presupuesto or urgentes_parciales) and r.presupuesto_capital_trabajo %}
+<div class="alert alert-warning">
+    <strong>{{ urgentes_sin_presupuesto | length }} pedido(s) urgente(s) sin presupuesto</strong>
+    y {{ urgentes_parciales | length }} cubierto(s) solo en parte.
+    Para pedir todo lo que hoy está en alerta (productos con costo conocido) hacen falta
+    <strong>${{ ns_ideal.costo | moneda }}</strong>; el presupuesto disponible es
+    ${{ r.presupuesto_capital_trabajo | moneda }}.
 </div>
 {% endif %}
 {% if ruptura_alertas %}
@@ -157,9 +174,34 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                                     <span class="ayuda-icono" tabindex="0">
                                         <i class="fa fa-question-circle"></i>
                                         <span class="ayuda-tooltip ayuda-tooltip-abajo">
-                                            La cantidad económica de pedido (EOQ), o lo que falta para
-                                            llegar al punto de reorden si no hay datos para calcular el
-                                            EOQ. Se limita al presupuesto de ese producto.
+                                             La cantidad ideal depende de la regla indicada debajo de cada
+                                             valor: EOQ solo si hay costo de pedido y de mantenimiento
+                                             (no están en el archivo clínico); si no, lo que falta para
+                                             llegar al punto de reorden; o un mes de demanda si el inventario
+                                             ya está en el punto de reorden. Luego se ajusta al presupuesto
+                                             disponible, según la prioridad (ver la columna Presupuesto).
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>
+                                    Cobertura después de la entrega
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo">
+                                            Meses de demanda que alcanza el stock que queda cuando llega el
+                                            pedido, más la cantidad que sí se puede comprar. Si el stock se
+                                            agota antes de que llegue el pedido, se marca aparte.
+                                        </span>
+                                    </span>
+                                </th>
+                                <th>
+                                    Presupuesto
+                                    <span class="ayuda-icono" tabindex="0">
+                                        <i class="fa fa-question-circle"></i>
+                                        <span class="ayuda-tooltip ayuda-tooltip-abajo">
+                                            Si el dinero alcanza para la cantidad ideal, el pedido está
+                                            completo. Si alcanza solo en parte, o no alcanza, se muestra
+                                            cuánto queda sin cubrir.
                                         </span>
                                     </span>
                                 </th>
@@ -221,15 +263,50 @@ Qué productos hay que pedir ya, cuánto va a costar y cómo se compara contra t
                                     <span class="valor-num" data-valor="{{ fila.inventario_actual }}">{{ fila.inventario_actual }}</span>
                                     {% else %}—{% endif %}
                                 </td>
-                                <td><span class="valor-num" data-valor="{{ fila.stock_seguridad }}">{{ fila.stock_seguridad }}</span></td>
+                                <td>
+                                    <span class="valor-num" data-valor="{{ fila.stock_seguridad }}">{{ fila.stock_seguridad }}</span>
+                                    {% if fila.estado_error_historico == "no disponible" %}
+                                    <small class="d-block text-danger" title="El producto no tiene backtest: el stock usa el desvío del pronóstico, no un error medido.">sin error histórico</small>
+                                    {% elif fila.estado_error_historico == "medido en cero" %}
+                                    <small class="d-block text-muted" title="El error de backtest fue 0; con pocos meses de prueba suele indicar muestra insuficiente.">error histórico 0</small>
+                                    {% endif %}
+                                </td>
                                 <td><span class="valor-num" data-valor="{{ fila.punto_reorden }}">{{ fila.punto_reorden }}</span></td>
                                 <td>{{ fila.lead_time_semanas }} semana(s)</td>
                                 <td>
                                     <strong class="text-primary">
                                         {% if fila.cantidad_sugerida_pedido is not none %}
                                         <span class="valor-num" data-valor="{{ fila.cantidad_sugerida_pedido }}">{{ fila.cantidad_sugerida_pedido }}</span>
-                                        {% else %}—{% endif %}
+                                        {% else %}-{% endif %}
                                     </strong>
+                                    {% if fila.regla_cantidad %}
+                                    <small class="d-block text-muted" title="Regla con la que se calculó la cantidad ideal de este producto.">{{ fila.regla_cantidad }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if fila.cobertura_despues_entrega_meses is not none %}
+                                    {{ fila.cobertura_despues_entrega_meses }} mes(es)
+                                    {% else %}—{% endif %}
+                                    {% if fila.riesgo_ruptura_durante_entrega == "SI" %}
+                                    <span class="badge badge-danger d-block mt-1">Se agota antes de la entrega</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if fila.estado_presupuesto == "completo" %}
+                                    <span class="badge badge-success">Completo</span>
+                                    {% elif fila.estado_presupuesto == "parcial" %}
+                                    <span class="badge badge-warning">Parcial</span>
+                                    <small class="d-block text-muted">
+                                        Sin cubrir: {{ fila.cantidad_sin_cubrir }} unid.
+                                        (${{ (fila.cantidad_sin_cubrir * fila.costo_unitario) | moneda }})
+                                    </small>
+                                    {% elif fila.estado_presupuesto == "sin presupuesto" %}
+                                    <span class="badge badge-danger">Sin presupuesto</span>
+                                    <small class="d-block text-muted">
+                                        Sin cubrir: {{ fila.cantidad_sin_cubrir }} unid.
+                                        (${{ (fila.cantidad_sin_cubrir * fila.costo_unitario) | moneda }})
+                                    </small>
+                                    {% else %}—{% endif %}
                                 </td>
                                 <td>{{ "$" + (fila.costo_estimado_pedido | moneda) if fila.costo_estimado_pedido is not none else "—" }}</td>
                                 <td>

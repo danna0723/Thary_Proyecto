@@ -92,6 +92,7 @@ def _borrar_empresa_de_prueba(engine, empresa_id):
     correcto a mano."""
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM corridas WHERE empresa_id = :id"), {"id": empresa_id})
+        conn.execute(text("DELETE FROM pedidos_movimientos WHERE empresa_id = :id"), {"id": empresa_id})
         conn.execute(text("DELETE FROM pedidos WHERE empresa_id = :id"), {"id": empresa_id})
         conn.execute(text("DELETE FROM actividad WHERE empresa_id = :id"), {"id": empresa_id})
         conn.execute(text("DELETE FROM usuarios WHERE empresa_id = :id"), {"id": empresa_id})

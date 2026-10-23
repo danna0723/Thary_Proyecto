@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from app.services.prediccion.modelos import (
+    elegir_campeon_por_producto,
     entrenar_xgboost,
     evaluar_modelo,
     prediccion_baseline_movil,
@@ -9,6 +10,7 @@ from app.services.prediccion.modelos import (
     tamano_test_backtest,
 )
 from app.services.prediccion.regresion_lineal import entrenar_regresion_lineal
+from app.services.prediccion.features import incorporar_estadisticas_producto
 
 # Mínimo de meses de entrenamiento para que un fold sea válido. Con muy
 # poca historia, un modelo entrenado con menos que esto no dice nada.
@@ -53,32 +55,91 @@ def _armar_folds(meses_ordenados):
     return folds
 
 
+def _predicciones_modelos(train_df, test_df, feature_cols):
+    """Entrena los tres métodos con train_df y predice sobre test_df.
+    Devuelve (pred_baseline, pred_lr, pred_xgb), en el mismo orden de
+    filas que test_df."""
+    X_train = train_df[feature_cols]
+    X_test = test_df[feature_cols]
+    y_train = train_df["demanda"]
+
+    _, pred_lr, _ = entrenar_regresion_lineal(X_train, y_train, X_test, feature_cols)
+    _, pred_xgb = entrenar_xgboost(X_train, np.log1p(y_train), X_test)
+    pred_baseline = prediccion_baseline_movil(test_df)
+    return pred_baseline, pred_lr, pred_xgb
+
+
+# EXTENSIÓN PROPIA (corrección A.3) — método campeón de UN fold, elegido
+# solo con datos ANTERIORES a su propio período de prueba.
+#
+# Antes, todos los folds reutilizaban el campeón del pipeline principal,
+# que se eligió con el período de validación justo antes del test
+# principal. Pero los folds más viejos prueban meses que ese período
+# principal ya usó para elegir: el campeón "conocía" esos meses. Acá se
+# repite, dentro de cada fold, el mismo procedimiento de producción
+# (entrenar con lo anterior, validar con los últimos meses de ese
+# historial, elegir por producto), sobre el entrenamiento de ESE fold
+# únicamente. Así ningún mes de prueba de un fold participa en la
+# elección de su método.
+#
+# El tamaño de la validación interna es min(meses de test del fold,
+# meses de entrenamiento del fold - MIN_TRAIN_MESES): con folds cortos
+# no se puede usar el tamaño completo del test sin dejar sin entrenar
+# al modelo. Esto hace que los folds más viejos elijan con menos meses
+# (y por eso con menos poder estadístico) — es una limitación que se
+# documenta, no un detalle oculto.
+#
+# Devuelve una Series producto_id -> método, o None si el fold no tiene
+# historia suficiente para elegir sin usar su propio test.
+def elegir_campeon_fold(df_model, df_mensual, feature_cols, meses_train, meses_test):
+    tamano_val = min(len(meses_test), len(meses_train) - MIN_TRAIN_MESES)
+    if tamano_val < MIN_TRAIN_MESES:
+        return None
+
+    meses_sub_train = meses_train[:-tamano_val]
+    meses_sub_val = meses_train[-tamano_val:]
+
+    # Estadísticas por producto con corte en el sub-entrenamiento (no en
+    # el entrenamiento completo del fold): la validación interna tampoco
+    # puede ver sus propios meses. Ver features.py.
+    df_sub = incorporar_estadisticas_producto(df_model, df_mensual, fecha_corte=meses_sub_train[-1])
+    sub_train = df_sub[df_sub["fecha"].isin(meses_sub_train)]
+    sub_val = df_sub[df_sub["fecha"].isin(meses_sub_val)]
+
+    pred_baseline, pred_lr, pred_xgb = _predicciones_modelos(sub_train, sub_val, feature_cols)
+
+    tabla_val = sub_val[["producto_id", "demanda"]].copy()
+    tabla_val["prediccion_media_movil"] = pred_baseline
+    tabla_val["prediccion_regresion_lineal"] = pred_lr
+    tabla_val["prediccion_xgboost"] = pred_xgb
+    campeon, _ = elegir_campeon_por_producto(tabla_val)
+    return campeon
+
+
 # EXTENSIÓN PROPIA — no viene de ningún ejemplo de referencia. Ninguno
 # valida con más de un split; acá se repite el entrenamiento de los
 # tres modelos contra varios períodos de tiempo distintos, para
 # confirmar que las métricas de la tabla comparativa de producción no
 # son un golpe de suerte de ese único período de prueba.
 #
-# "campeon" se recibe como parámetro — es el MISMO método por producto
-# que ya se decidió en el pipeline principal (sistema_prediccion.py),
-# con su propio período de VALIDACIÓN, nunca con el test de cada fold.
-# Antes, cada fold volvía a elegir campeón con los datos de su propio
-# test_fold — la misma fuga de selección que se corrigió en
-# construir_tabla_predicciones (ver el comentario junto a
-# elegir_campeon_por_producto en modelos.py), repetida en cada fold.
-# Reutilizar una política de selección ya decidida, y solo comprobar si
-# esa decisión se sostiene en otros períodos históricos, es lo que
-# realmente responde la pregunta que esta validación cruzada quiere
-# contestar: no "¿puedo elegir mejor sabiendo la respuesta de este
-# período?" (que siempre es sí, por construcción), sino "¿la decisión
-# que ya tomé con otro período sigue funcionando acá?".
-def validacion_cruzada_temporal(df_model, feature_cols, campeon):
+# Cada fold elige su propio método por producto (elegir_campeon_fold),
+# usando solo sus meses anteriores al test — ver ese comentario.
+def validacion_cruzada_temporal(df_model, feature_cols, df_mensual):
     """
     Devuelve (detalle_folds, resumen):
       - detalle_folds: una fila por (fold, modelo) con sus métricas —
         lista de dicts lista para iterar en un template.
       - resumen: una fila por (modelo, métrica) con el promedio y
         desvío estándar a través de los folds — mismo formato.
+
+    df_mensual: el historial mensual completo (ver features.py). Cada
+    fold recalcula sus estadísticas por producto (media/desvío de
+    demanda) usando solo SU propio entrenamiento — nunca las del split
+    principal ni las de otro fold, porque esas ya incluyen meses que
+    este fold usa como prueba.
+
+    El "Sistema final" de un fold solo aparece si ese fold tiene
+    historia suficiente para elegir método (ver elegir_campeon_fold).
 
     Si no hay suficiente historial para al menos un fold, devuelve dos
     listas vacías en vez de fallar (un CSV chico puede no alcanzar).
@@ -90,20 +151,14 @@ def validacion_cruzada_temporal(df_model, feature_cols, campeon):
     metricas_acumuladas = {"Media móvil": [], "Regresión Lineal": [], "XGBoost": [], "Sistema final": []}
 
     for numero_fold, (meses_train, meses_test) in enumerate(folds, start=1):
-        train_fold = df_model[df_model["fecha"].isin(meses_train)]
-        test_fold = df_model[df_model["fecha"].isin(meses_test)]
+        df_model_fold = incorporar_estadisticas_producto(df_model, df_mensual, fecha_corte=meses_train[-1])
+        train_fold = df_model_fold[df_model_fold["fecha"].isin(meses_train)]
+        test_fold = df_model_fold[df_model_fold["fecha"].isin(meses_test)]
         if train_fold.empty or test_fold.empty:
             continue
 
-        X_train = train_fold[feature_cols]
-        X_test = test_fold[feature_cols]
-        y_train = train_fold["demanda"]
         y_test = test_fold["demanda"]
-        y_train_log = np.log1p(y_train)
-
-        _, pred_lr, _ = entrenar_regresion_lineal(X_train, y_train, X_test, feature_cols)
-        _, pred_xgb = entrenar_xgboost(X_train, y_train_log, X_test)
-        pred_baseline = prediccion_baseline_movil(test_fold)
+        pred_baseline, pred_lr, pred_xgb = _predicciones_modelos(train_fold, test_fold, feature_cols)
 
         metricas_fold = {
             "Media móvil": evaluar_modelo(y_test.values, pred_baseline, "Media móvil"),
@@ -111,19 +166,17 @@ def validacion_cruzada_temporal(df_model, feature_cols, campeon):
             "XGBoost": evaluar_modelo(y_test.values, pred_xgb, "XGBoost"),
         }
 
-        # "Sistema final" de este fold: se aplica la MISMA política de
-        # selección por producto decidida en el pipeline principal
-        # (parámetro "campeon"), no una elegida de nuevo con el test de
-        # este fold — ver el comentario largo arriba.
-        tabla_fold = test_fold[["producto_id", "demanda"]].copy()
-        tabla_fold["prediccion_media_movil"] = pred_baseline
-        tabla_fold["prediccion_regresion_lineal"] = pred_lr
-        tabla_fold["prediccion_xgboost"] = pred_xgb
-        tabla_fold["metodo_usado"] = tabla_fold["producto_id"].map(campeon).fillna("Media móvil")
-        tabla_fold["prediccion_final"] = seleccionar_prediccion_final(tabla_fold)
-        metricas_fold["Sistema final"] = evaluar_modelo(
-            tabla_fold["demanda"].values, tabla_fold["prediccion_final"].values, "Sistema final"
-        )
+        campeon_fold = elegir_campeon_fold(df_model, df_mensual, feature_cols, meses_train, meses_test)
+        if campeon_fold is not None:
+            tabla_fold = test_fold[["producto_id", "demanda"]].copy()
+            tabla_fold["prediccion_media_movil"] = pred_baseline
+            tabla_fold["prediccion_regresion_lineal"] = pred_lr
+            tabla_fold["prediccion_xgboost"] = pred_xgb
+            tabla_fold["metodo_usado"] = tabla_fold["producto_id"].map(campeon_fold).fillna("Media móvil")
+            tabla_fold["prediccion_final"] = seleccionar_prediccion_final(tabla_fold)
+            metricas_fold["Sistema final"] = evaluar_modelo(
+                tabla_fold["demanda"].values, tabla_fold["prediccion_final"].values, "Sistema final"
+            )
 
         periodo_test = f"{meses_test[0].strftime('%Y-%m')} a {meses_test[-1].strftime('%Y-%m')}"
         for modelo, metricas in metricas_fold.items():

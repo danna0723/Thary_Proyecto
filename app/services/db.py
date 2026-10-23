@@ -94,6 +94,24 @@ TABLAS_DDL = [
         UNIQUE KEY uq_pedido_producto (empresa_id, producto_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
+    # Historial de pedidos (una fila por cada confirmación o deshacer). La
+    # tabla pedidos guarda solo el estado vigente; esta guarda cada movimiento
+    # con su cantidad, costo y usuario. Ver app/services/pedidos.py.
+    """
+    CREATE TABLE IF NOT EXISTS pedidos_movimientos (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        empresa_id VARCHAR(32) NOT NULL,
+        producto_id VARCHAR(64) NOT NULL,
+        accion ENUM('confirmado', 'deshecho') NOT NULL,
+        proveedor VARCHAR(160),
+        cantidad DOUBLE,
+        costo DOUBLE,
+        usuario VARCHAR(120),
+        fecha_hora DATETIME NOT NULL,
+        FOREIGN KEY (empresa_id) REFERENCES empresas(id),
+        INDEX ix_movimiento_empresa_producto (empresa_id, producto_id, fecha_hora)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    """,
     # "corrida" = una vez que se sube y procesa un CSV. Es la tabla
     # padre de todo el resultado del pipeline — antes era un solo
     # ultimo_resultado.json que se PISABA en cada subida; ahora cada
@@ -316,6 +334,22 @@ COLUMNAS_NUEVAS = [
     ("segmentacion", "mae_xgboost", "DOUBLE"),
     ("reorder", "stock_seguridad_lognormal", "DOUBLE"),
     ("reorder", "punto_reorden_lognormal", "DOUBLE"),
+    # Política de reposición (corrección P1-B): cantidad ideal antes del
+    # presupuesto, lo que queda sin cubrir, cobertura durante y después
+    # de la entrega, y de dónde sale el error usado para el stock de
+    # seguridad. Ver reposicion.py.
+    ("reorder", "fuente_sigma", "VARCHAR(60)"),
+    ("reorder", "cantidad_ideal_pedido", "DOUBLE"),
+    ("reorder", "regla_cantidad", "VARCHAR(120)"),
+    ("reorder", "cantidad_sin_cubrir", "DOUBLE"),
+    ("reorder", "estado_presupuesto", "VARCHAR(30)"),
+    ("reorder", "stock_al_llegar_pedido", "DOUBLE"),
+    ("reorder", "riesgo_ruptura_durante_entrega", "VARCHAR(5)"),
+    ("reorder", "cobertura_despues_entrega_meses", "DOUBLE"),
+    # Estado del error histórico (corrección D): medido / medido en cero /
+    # no disponible. Ver pronostico_futuro.estado_error_historico.
+    ("reorder", "estado_error_historico", "VARCHAR(30)"),
+    ("pronostico_futuro", "estado_error", "VARCHAR(30)"),
 ]
 
 
