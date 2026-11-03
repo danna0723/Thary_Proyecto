@@ -34,7 +34,7 @@ def empresa():
         conn.execute(sql_text("INSERT INTO empresas (id) VALUES (:id)"), {"id": empresa_id})
     yield empresa_id
     with engine.begin() as conn:
-        for tabla in ("pedidos_movimientos", "pedidos", "corridas"):
+        for tabla in ("pedidos_movimientos", "pedidos", "ejecuciones"):
             conn.execute(sql_text(f"DELETE FROM {tabla} WHERE empresa_id = :id"), {"id": empresa_id})
         conn.execute(sql_text("DELETE FROM empresas WHERE id = :id"), {"id": empresa_id})
 

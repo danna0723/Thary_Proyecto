@@ -67,7 +67,7 @@ def entorno():
             conn.execute(sql_text("DELETE FROM pedidos_movimientos WHERE empresa_id = :id"), {"id": empresa})
             conn.execute(sql_text("DELETE FROM pedidos WHERE empresa_id = :id"), {"id": empresa})
             conn.execute(sql_text("DELETE FROM actividad WHERE empresa_id = :id"), {"id": empresa})
-            conn.execute(sql_text("DELETE FROM corridas WHERE empresa_id = :id"), {"id": empresa})
+            conn.execute(sql_text("DELETE FROM ejecuciones WHERE empresa_id = :id"), {"id": empresa})
             conn.execute(sql_text("DELETE FROM empresas WHERE id = :id"), {"id": empresa})
     import shutil
     shutil.rmtree(carpeta_a, ignore_errors=True)

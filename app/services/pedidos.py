@@ -6,7 +6,7 @@ from app.services.db import get_engine
 def cargar_pedidos(empresa_id):
     """Devuelve el registro de pedidos confirmados de una empresa:
     {producto_id: {...}}. Vive en su propia tabla, separada de las
-    corridas del pipeline — el historial de "qué ya se pidió" no
+    ejecuciones del pipeline — el historial de "qué ya se pidió" no
     debería borrarse cada vez que se sube un CSV nuevo para actualizar
     el pronóstico."""
     engine = get_engine()

@@ -4,7 +4,7 @@ Pruebas de la comunicación de incertidumbre (corrección D del informe).
 Qué protege:
 - El margen del rango se distingue en tres estados: medido, medido en cero
   y no disponible. Un producto sin backtest no puede verse como confiable.
-- Las corridas guardadas antes de esta columna no reciben un estado inventado.
+- Las ejecuciones guardadas antes de esta columna no reciben un estado inventado.
 - El estado sobrevive guardar_resultado -> MySQL -> cargar_ultima_corrida.
 - El texto de la interfaz habla de margen descriptivo, no de probabilidad.
 """
@@ -175,7 +175,7 @@ class TestPersistenciaEnMySQL:
             assert por_id["B"]["sin_margen"] is False
         finally:
             with engine.begin() as conn:
-                conn.execute(sql_text("DELETE FROM corridas WHERE empresa_id = :id"), {"id": empresa_id})
+                conn.execute(sql_text("DELETE FROM ejecuciones WHERE empresa_id = :id"), {"id": empresa_id})
                 conn.execute(sql_text("DELETE FROM empresas WHERE id = :id"), {"id": empresa_id})
 
 

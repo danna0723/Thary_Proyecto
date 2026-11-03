@@ -1,8 +1,8 @@
 """
 Persistencia del resultado del pipeline (lo que antes era
 ultimo_resultado.json) en MySQL. Cada vez que se procesa un CSV se crea
-una fila nueva en "corridas" — a diferencia del JSON, que se pisaba en
-cada subida, acá queda historial de corridas anteriores (aunque hoy la
+una fila nueva en "ejecuciones" — a diferencia del JSON, que se pisaba en
+cada subida, acá queda historial de ejecuciones anteriores (aunque hoy la
 app solo lee la más reciente, ver cargar_ultima_corrida).
 
 Este módulo no sabe nada de archivos en disco (CSVs, gráficas, el
@@ -50,7 +50,7 @@ def guardar_resultado(resultado, empresa_id):
     with engine.begin() as conn:
         fila = conn.execute(
             text(
-                "INSERT INTO corridas ("
+                "INSERT INTO ejecuciones ("
                 "  empresa_id, horizonte_meses, presupuesto_capital_trabajo, presupuesto_por_producto,"
                 "  mape_final, wape_final, costo_total_pedidos_urgentes, valor_total_inventario,"
                 "  productos_sin_dato_inventario, productos_en_alerta, features_regresion_lineal"
@@ -87,7 +87,7 @@ def guardar_resultado(resultado, empresa_id):
                 # Timestamp de pandas -> texto, igual que antes hacía
                 # json.dump(..., default=str) al guardar en el JSON.
                 df["fecha"] = df["fecha"].astype(str)
-            df["corrida_id"] = corrida_id
+            df["ejecucion_id"] = corrida_id
             df.to_sql(nombre_tabla, conn, if_exists="append", index=False)
 
     return corrida_id
@@ -102,7 +102,7 @@ def cargar_ultima_corrida(empresa_id):
     with engine.connect() as conn:
         fila_corrida = conn.execute(
             text(
-                "SELECT * FROM corridas WHERE empresa_id = :empresa_id "
+                "SELECT * FROM ejecuciones WHERE empresa_id = :empresa_id "
                 "ORDER BY fecha_corrida DESC, id DESC LIMIT 1"
             ),
             {"empresa_id": empresa_id},
@@ -131,10 +131,10 @@ def cargar_ultima_corrida(empresa_id):
 
         for clave_resultado, nombre_tabla in TABLAS_RESULTADO.items():
             filas = conn.execute(
-                text(f"SELECT * FROM {nombre_tabla} WHERE corrida_id = :corrida_id ORDER BY id"),
-                {"corrida_id": corrida_id},
+                text(f"SELECT * FROM {nombre_tabla} WHERE ejecucion_id = :ejecucion_id ORDER BY id"),
+                {"ejecucion_id": corrida_id},
             ).mappings().all()
-            registros = [{k: v for k, v in f.items() if k not in ("id", "corrida_id")} for f in filas]
+            registros = [{k: v for k, v in f.items() if k not in ("id", "ejecucion_id")} for f in filas]
             if clave_resultado == "metricas":
                 registros = [{RENOMBRES_METRICAS_INVERSO[k]: v for k, v in r.items()} for r in registros]
             resultado[clave_resultado] = registros
@@ -178,7 +178,7 @@ def _armar_pronostico_pivot(registros_pronostico):
     for producto_id, filas in por_producto.items():
         filas_ordenadas = sorted(filas, key=lambda f: f["horizonte"])
         valores_crudos = [f["prediccion_final"] for f in filas_ordenadas]
-        # prediccion_min/prediccion_max no existen en corridas guardadas
+        # prediccion_min/prediccion_max no existen en ejecuciones guardadas
         # antes de agregar esta funcionalidad (columnas NULL en MySQL) —
         # en ese caso se usa el propio valor puntual como rango (sin
         # ancho), en vez de fallar al sumarlos.
@@ -186,7 +186,7 @@ def _armar_pronostico_pivot(registros_pronostico):
         maximos_crudos = [f.get("prediccion_max") if f.get("prediccion_max") is not None else f["prediccion_final"] for f in filas_ordenadas]
         confianzas_bajas = [es_baja_confianza(v, mn) for v, mn in zip(valores_crudos, minimos_crudos)]
         # Estado del error histórico (ver pronostico_futuro.estado_error_historico).
-        # Las corridas guardadas antes de esta columna no lo tienen (NULL): en
+        # Las ejecuciones guardadas antes de esta columna no lo tienen (NULL): en
         # ese caso no se inventa un estado — queda None y la interfaz no lo muestra.
         estados_error = [f.get("estado_error") for f in filas_ordenadas]
         estado_producto = None if any(e is None for e in estados_error) else estado_error_del_producto(estados_error)

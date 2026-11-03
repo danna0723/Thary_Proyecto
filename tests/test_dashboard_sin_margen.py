@@ -47,7 +47,7 @@ def empresa_con_dos_productos():
     yield empresa_id
 
     with engine.begin() as conn:
-        conn.execute(sql_text("DELETE FROM corridas WHERE empresa_id = :id"), {"id": empresa_id})
+        conn.execute(sql_text("DELETE FROM ejecuciones WHERE empresa_id = :id"), {"id": empresa_id})
         conn.execute(sql_text("DELETE FROM empresas WHERE id = :id"), {"id": empresa_id})
 
 
@@ -113,5 +113,5 @@ def test_dashboard_lista_los_productos_sin_pronostico():
         assert "Prod CORTO" in html.split("no entran en el pronóstico")[1].split("</div>")[0]
     finally:
         with engine.begin() as conn:
-            conn.execute(sql_text("DELETE FROM corridas WHERE empresa_id = :id"), {"id": empresa_id})
+            conn.execute(sql_text("DELETE FROM ejecuciones WHERE empresa_id = :id"), {"id": empresa_id})
             conn.execute(sql_text("DELETE FROM empresas WHERE id = :id"), {"id": empresa_id})

@@ -85,13 +85,13 @@ def _empresa_id_de_username_si_existe(engine, username):
 
 def _borrar_empresa_de_prueba(engine, empresa_id):
     """Borra en cascada todo lo que haya quedado de la empresa de
-    prueba (y solo de ella — nunca de otra). "corridas" cascadea solo
+    prueba (y solo de ella — nunca de otra). "ejecuciones" cascadea solo
     hacia sus tablas hijas (segmentacion, reorder, etc., que tienen ON
-    DELETE CASCADE a corridas.id), pero "empresas" no cascadea hacia
-    usuarios/pedidos/corridas/actividad, así que se borra en el orden
+    DELETE CASCADE a ejecuciones.id), pero "empresas" no cascadea hacia
+    usuarios/pedidos/ejecuciones/actividad, así que se borra en el orden
     correcto a mano."""
     with engine.begin() as conn:
-        conn.execute(text("DELETE FROM corridas WHERE empresa_id = :id"), {"id": empresa_id})
+        conn.execute(text("DELETE FROM ejecuciones WHERE empresa_id = :id"), {"id": empresa_id})
         conn.execute(text("DELETE FROM pedidos_movimientos WHERE empresa_id = :id"), {"id": empresa_id})
         conn.execute(text("DELETE FROM pedidos WHERE empresa_id = :id"), {"id": empresa_id})
         conn.execute(text("DELETE FROM actividad WHERE empresa_id = :id"), {"id": empresa_id})

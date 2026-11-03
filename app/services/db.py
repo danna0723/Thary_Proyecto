@@ -116,10 +116,10 @@ TABLAS_DDL = [
     # padre de todo el resultado del pipeline — antes era un solo
     # ultimo_resultado.json que se PISABA en cada subida; ahora cada
     # corrida queda como una fila propia, así que de paso se gana
-    # historial de corridas pasadas, no solo la última (aunque hoy la
+    # historial de ejecuciones pasadas, no solo la última (aunque hoy la
     # app solo lee la más reciente, ver main.py::cargar_ultima_corrida).
     """
-    CREATE TABLE IF NOT EXISTS corridas (
+    CREATE TABLE IF NOT EXISTS ejecuciones (
         id INT AUTO_INCREMENT PRIMARY KEY,
         empresa_id VARCHAR(32) NOT NULL,
         fecha_corrida DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -158,7 +158,7 @@ TABLAS_DDL = [
     """
     CREATE TABLE IF NOT EXISTS segmentacion (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        corrida_id INT NOT NULL,
+        ejecucion_id INT NOT NULL,
         producto_id VARCHAR(64),
         nombre_producto VARCHAR(200),
         categoria VARCHAR(120),
@@ -175,13 +175,13 @@ TABLAS_DDL = [
         mae_xgboost DOUBLE,
         proveedor_principal VARCHAR(160),
         proveedor_alterno VARCHAR(160),
-        FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
+        FOREIGN KEY (ejecucion_id) REFERENCES ejecuciones(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
     """
     CREATE TABLE IF NOT EXISTS metricas_modelos (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        corrida_id INT NOT NULL,
+        ejecucion_id INT NOT NULL,
         modelo VARCHAR(60),
         mae DOUBLE,
         rmse DOUBLE,
@@ -189,13 +189,13 @@ TABLAS_DDL = [
         mediana_error DOUBLE,
         mape DOUBLE,
         wape DOUBLE,
-        FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
+        FOREIGN KEY (ejecucion_id) REFERENCES ejecuciones(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
     """
     CREATE TABLE IF NOT EXISTS predicciones_backtest (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        corrida_id INT NOT NULL,
+        ejecucion_id INT NOT NULL,
         fecha VARCHAR(10),
         producto_id VARCHAR(64),
         demanda DOUBLE,
@@ -207,13 +207,13 @@ TABLAS_DDL = [
         prediccion_final DOUBLE,
         error_final DOUBLE,
         metodo_usado VARCHAR(40),
-        FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
+        FOREIGN KEY (ejecucion_id) REFERENCES ejecuciones(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
     """
     CREATE TABLE IF NOT EXISTS pronostico_futuro (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        corrida_id INT NOT NULL,
+        ejecucion_id INT NOT NULL,
         producto_id VARCHAR(64),
         nombre_producto VARCHAR(200),
         categoria VARCHAR(120),
@@ -226,13 +226,13 @@ TABLAS_DDL = [
         prediccion_min DOUBLE,
         prediccion_max DOUBLE,
         metodo_usado VARCHAR(40),
-        FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
+        FOREIGN KEY (ejecucion_id) REFERENCES ejecuciones(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
     """
     CREATE TABLE IF NOT EXISTS reorder (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        corrida_id INT NOT NULL,
+        ejecucion_id INT NOT NULL,
         producto_id VARCHAR(64),
         nombre_producto VARCHAR(200),
         categoria VARCHAR(120),
@@ -256,13 +256,13 @@ TABLAS_DDL = [
         fecha_estimada_pedido VARCHAR(10),
         dias_para_pedido INT,
         ordenar VARCHAR(5),
-        FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
+        FOREIGN KEY (ejecucion_id) REFERENCES ejecuciones(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
     """
     CREATE TABLE IF NOT EXISTS validacion_cruzada_folds (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        corrida_id INT NOT NULL,
+        ejecucion_id INT NOT NULL,
         fold INT,
         meses_entrenamiento INT,
         periodo_test VARCHAR(30),
@@ -271,19 +271,19 @@ TABLAS_DDL = [
         rmse DOUBLE,
         mape DOUBLE,
         wape DOUBLE,
-        FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
+        FOREIGN KEY (ejecucion_id) REFERENCES ejecuciones(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
     """
     CREATE TABLE IF NOT EXISTS validacion_cruzada_resumen (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        corrida_id INT NOT NULL,
+        ejecucion_id INT NOT NULL,
         modelo VARCHAR(40),
         metrica VARCHAR(20),
         promedio DOUBLE,
         desvio DOUBLE,
         folds INT,
-        FOREIGN KEY (corrida_id) REFERENCES corridas(id) ON DELETE CASCADE
+        FOREIGN KEY (ejecucion_id) REFERENCES ejecuciones(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
 ]
@@ -367,6 +367,51 @@ def _agregar_columnas_faltantes(conn):
             conn.execute(text(f"ALTER TABLE {tabla} ADD COLUMN {columna} {tipo}"))
 
 
+def _migrar_nombres_antiguos(conn):
+    """Renombra la tabla 'corridas' a 'ejecuciones' y la columna
+    'corrida_id' a 'ejecucion_id' en bases de datos existentes."""
+    cfg = _config()
+    vieja = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = :db "
+            "AND TABLE_NAME = 'corridas'"
+        ),
+        {"db": cfg["database"]},
+    ).first()
+    nueva = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = :db "
+            "AND TABLE_NAME = 'ejecuciones'"
+        ),
+        {"db": cfg["database"]},
+    ).first()
+    if vieja is not None and nueva is None:
+        conn.execute(text("RENAME TABLE corridas TO ejecuciones"))
+
+    tablas = [
+        "segmentacion", "metricas_modelos", "predicciones_backtest",
+        "pronostico_futuro", "reorder", "validacion_cruzada_folds",
+        "validacion_cruzada_resumen",
+    ]
+    for tabla in tablas:
+        existe_vieja = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :db "
+                "AND TABLE_NAME = :tabla AND COLUMN_NAME = 'corrida_id'"
+            ),
+            {"db": cfg["database"], "tabla": tabla},
+        ).first()
+        existe_nueva = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :db "
+                "AND TABLE_NAME = :tabla AND COLUMN_NAME = 'ejecucion_id'"
+            ),
+            {"db": cfg["database"], "tabla": tabla},
+        ).first()
+        if existe_vieja is not None and existe_nueva is None:
+            conn.execute(text(f"ALTER TABLE {tabla} RENAME COLUMN corrida_id TO ejecucion_id"))
+
+
 def crear_tablas():
     """Crea todas las tablas si no existen — se llama una vez al
     arrancar la app (ver app/__init__.py), igual que antes se hacía
@@ -374,6 +419,7 @@ def crear_tablas():
     crear_base_de_datos_si_no_existe()
     engine = get_engine()
     with engine.begin() as conn:
+        _migrar_nombres_antiguos(conn)
         for ddl in TABLAS_DDL:
             conn.execute(text(ddl))
         _agregar_columnas_faltantes(conn)

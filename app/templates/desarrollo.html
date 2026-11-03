@@ -144,6 +144,23 @@
     </div>
 </div>
 
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-block">
+                <div class="card-title-block">
+                    <h3 class="title">WAPE por segmento de producto (clase ABC / variabilidad)</h3>
+                </div>
+                <p class="text-muted small">
+                    WAPE de cada modelo por segmento de producto (clase ABC y variabilidad).
+                    Muestra en que grupos el ML aporta mas valor frente a la Media Movil.
+                </p>
+                <img class="img-fluid" src="{{ url_for('main.imagenes', nombre_archivo='wape_por_segmento.png') }}" alt="WAPE por segmento">
+            </div>
+        </div>
+    </div>
+</div>
+
 {% if filas_combinacion %}
 <div class="row">
     <div class="col-12">

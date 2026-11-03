@@ -61,7 +61,7 @@ ARCHIVOS_RESULTADO = {
 
 
 def guardar_ultimo_resultado(resultado, empresa_id):
-    """Guarda el resultado del procesamiento en MySQL (tabla "corridas"
+    """Guarda el resultado del procesamiento en MySQL (tabla "ejecuciones"
     y sus tablas hijas — ver app/services/resultados.py) para que
     /desarrollo y /dashboard puedan leerlo después, sin volver a correr
     el pipeline."""
@@ -210,7 +210,7 @@ def desarrollo():
 
     # Se calcula al momento (no se guarda en MySQL) a partir de las
     # predicciones de backtest que ya están en el resultado, así también
-    # funciona con corridas viejas sin tocar la base de datos.
+    # funciona con ejecuciones viejas sin tocar la base de datos.
     filas_combinacion, detalle_combinacion = evaluar_combinacion(resultado["predicciones"])
 
     return render_template(
@@ -285,7 +285,7 @@ def reporte_demanda():
     )
     for fila in resultado["pronostico_pivot"]:
         valores_filtrados = fila["valores"][i_desde:i_hasta + 1]
-        # rangos no existe en corridas guardadas antes de esta
+        # rangos no existe en ejecuciones guardadas antes de esta
         # funcionalidad — en ese caso se usa el propio valor como rango.
         rangos_filtrados = (fila.get("rangos") or [[v, v] for v in fila["valores"]])[i_desde:i_hasta + 1]
         escritor.writerow([
